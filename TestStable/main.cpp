@@ -40,7 +40,7 @@ int main()
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
 	luaL_requiref(L, "sraw", luaopen_stable_raw, 1);
-	luaL_dofile(L, ".\\testRaw.lua");
+	luaL_dofile(L, "../lua/testRaw.lua");
 	lua_close(L);
 
     return 0;
