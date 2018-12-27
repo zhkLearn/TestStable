@@ -140,6 +140,32 @@ static int _get(lua_State* L)
 	return 1;
 }
 
+static int _share(lua_State* L)
+{
+	STable* t = (STable *)lua_touserdata(L, 1);
+	
+	//TODO
+
+	return 0;
+}
+
+static int _acquire(lua_State* L)
+{
+	const char* name = lua_tostring(L, 1);
+	if (!name)
+	{
+		luaL_error(L, "need a valid table name");
+	}
+
+	//TODO
+
+	STable* t = stable_create();
+	stable_setnumber(t, TKEY("test"), 100);
+	lua_pushlightuserdata(L, t);
+
+	return 1;
+}
+
 static void _error(lua_State* L, const char *key, size_t sz, int type)
 {
 	if (key == NULL)
@@ -294,10 +320,23 @@ static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int 
 
 static int _settable(lua_State* L)
 {
+	stack_dump(L);
+
 	STable* t = (STable *)lua_touserdata(L, 1);
+	if (!t)
+	{
+		luaL_error(L, "table is nil");
+	}
 	size_t sz;
 	const char* key = _get_key(L, 2, &sz);
-	if (stable_settable(t, key, sz, (STable *)lua_touserdata(L, 3)))
+
+	STable* tValue = (STable *)lua_touserdata(L, 3);
+	if (!tValue)
+	{
+		luaL_error(L, "value is not a table");
+	}
+
+	if (stable_settable(t, key, sz, tValue))
 	{
 		_error(L, key, sz, LUA_TLIGHTUSERDATA);
 	}
@@ -535,6 +574,13 @@ static int _grab(lua_State* L)
 	return 1;
 }
 
+static int _incref(lua_State* L)
+{
+	STable* t = (STable *)lua_touserdata(L, 1);
+	stable_grab(t);
+	return 0;
+}
+
 static int _decref(lua_State* L)
 {
 	STable* t = (STable *)lua_touserdata(L, 1);
@@ -548,13 +594,6 @@ static int _getref(lua_State* L)
 	int ref = stable_getref(t);
 	lua_pushinteger(L, ref);
 	return 1;
-}
-
-static int _incref(lua_State* L)
-{
-	STable* t = (STable *)lua_touserdata(L, 1);
-	stable_grab(t);
-	return 0;
 }
 
 static int _dump(lua_State* L)
@@ -571,15 +610,17 @@ int luaopen_stable_raw(lua_State* L)
 	luaL_Reg l[] =
 	{
 		{ "create",		_create },
-		{ "decref",		_decref },
 		{ "incref",		_incref },
+		{ "decref",		_decref },
 		{ "getref",		_getref },
-		{ "get",		_get },
-		{ "set",		_set },
-		{ "settable",	_settable },
-		{ "pairs",		_pairs },
-		{ "ipairs",		_ipairs },
+		//{ "get",		_get },
+		//{ "set",		_set },
+		//{ "settable",	_settable },
+		//{ "pairs",	_pairs },
+		//{ "ipairs",	_ipairs },
 		{ "init",		_init_metaTable },
+		{ "share",		_share },
+		{ "acquire",	_acquire },
 		{ "dump",		_dump },
 		{ NULL,			NULL },
 	};
