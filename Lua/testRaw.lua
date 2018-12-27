@@ -14,12 +14,12 @@ print("\n3:")
 
 local subT = {1, 2, 3}
 
-t.hello = {world = true, 3, 4, 5, False = false, testT = {2, 3, testttt = {4,5,6}}} 
+t.hello = {world = true, "one", "two", 3, False = false, testT = {true, 3, testttt = {"Alpha", nil, 6}}} 
 -- If you don't want to set explicit, use this :
 --  sraw.set(t,"hello", { world = true })
 print("\n4:")
 
-t.hello.subTable = subT
+t.subTable = subT
 -- print(t.hello.world)
 -- or use this :
 -- hello = sraw.get(t,"hello") ; print( sraw.get(hello, "world"))
@@ -30,8 +30,19 @@ t.hello.subTable = subT
 sraw.dump(t)
 print("\n5:")
 
-for k,v in pairs(t.hello) do  -- or use sraw.pairs
-  print (k,v)
+function dumpSTable(tbl)
+	for k,v in pairs(tbl) do  -- or use sraw.pairs
+		if type(v) == "userdata" then
+			print(k)
+			dumpSTable(v)
+		else
+			print(k, v)
+		end
+	end
 end
 
+dumpSTable(t)
+
+
 print("\n6:")
+
