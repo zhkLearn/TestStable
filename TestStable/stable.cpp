@@ -21,14 +21,14 @@
 #define __sync_sub_and_fetch(l, v) (std::atomic_fetch_sub(l, v) - v)
 
 /*
-static int MEM = 0;
+static std::atomic_int MEM = 0;
 
 static void *my_malloc(size_t sz) {
-	__sync_add_and_fetch (&MEM,1);
+	__sync_add_and_fetch(&MEM, 1);
 	return malloc(sz);
 }
 static void my_free(void *p) {
-	__sync_sub_and_fetch (&MEM,1);
+	__sync_sub_and_fetch(&MEM, 1);
 	free(p);
 }
 
@@ -49,7 +49,7 @@ struct string_slot
 struct SString
 {
     std::atomic_int lock;
-    struct string_slot *slot;
+    string_slot*slot;
 };
 
 struct STable
@@ -59,7 +59,7 @@ struct STable
     std::atomic_int lock;
     std::atomic_int map_lock;
     std::atomic_int array_lock;
-    struct SMap *map;
+    SMap* map;
     struct SArray *array;
 };
 
@@ -72,14 +72,14 @@ struct SValue
         bool b;
         uint64_t id;
         STable* t;
-        struct SString *s;
+        SString* s;
     } v;
 };
 
 struct SNode
 {
     struct SNode *next;
-    struct string_slot *k;
+    string_slot*k;
     SValue v;
 };
 
@@ -99,26 +99,28 @@ struct SArray
 
 static inline void _table_lock(STable* t)
 {
+	// wait until t->lock is 0(not locked)
     while (__sync_lock_test_and_set(&t->lock, 1)) {}
 }
 
 static inline void _table_unlock(STable* t)
 {
+	// set t->lock to 0
     __sync_lock_release(&t->lock);
 }
 
-static inline struct string_slot * _grab_string(struct SString *s)
+static inline string_slot* _grab_string(SString* s)
 {
     while (__sync_lock_test_and_set(&s->lock, 1)) {}
 
     int ref = __sync_add_and_fetch(&s->slot->ref, 1);
     assert(ref > 1);
-    struct string_slot * ret = s->slot;
+    string_slot* ret = s->slot;
     __sync_lock_release(&s->lock);
     return ret;
 }
 
-static inline void _release_string(struct string_slot *s)
+static inline void _release_string(string_slot*s)
 {
     if (__sync_sub_and_fetch(&s->ref, 1) == 0)
     {
@@ -126,9 +128,9 @@ static inline void _release_string(struct string_slot *s)
     }
 }
 
-static inline struct string_slot *new_string(const char* name, size_t sz)
+static inline string_slot* new_string(const char* name, size_t sz)
 {
-    struct string_slot *s = (struct string_slot *)malloc(sizeof(*s) + sz);
+    string_slot*s = (string_slot*)malloc(sizeof(*s) + sz);
     s->ref = 1;
     s->sz = sz;
     memcpy(s->buf, name, sz);
@@ -136,13 +138,13 @@ static inline struct string_slot *new_string(const char* name, size_t sz)
     return s;
 }
 
-static inline void _update_string(struct SString *s, const char* name, size_t sz)
+static inline void _update_string(SString* s, const char* name, size_t sz)
 {
-    struct string_slot * ns = new_string(name, sz);
+    string_slot* ns = new_string(name, sz);
 
     while (__sync_lock_test_and_set(&s->lock, 1)) {}
 
-    struct string_slot * old = s->slot;
+    string_slot* old = s->slot;
     s->slot = ns;
     int ref = __sync_sub_and_fetch(&old->ref, 1);
     __sync_lock_release(&s->lock);
@@ -152,13 +154,13 @@ static inline void _update_string(struct SString *s, const char* name, size_t sz
     }
 }
 
-static inline struct SArray * _grab_array(STable* t)
+static inline SArray* _grab_array(STable* t)
 {
     while (__sync_lock_test_and_set(&t->array_lock, 1)) {}
 
     int ref = __sync_add_and_fetch(&t->array->ref, 1);
     assert(ref > 1);
-    struct SArray * ret = t->array;
+    SArray* ret = t->array;
     __sync_lock_release(&t->array_lock);
     return ret;
 }
@@ -191,20 +193,19 @@ static inline struct SMap* _grab_map(STable* t)
 
     int ref = __sync_add_and_fetch(&t->map->ref, 1);
     assert(ref > 1);
-    struct SMap * ret = t->map;
+    SMap* ret = t->map;
     __sync_lock_release(&t->map_lock);
     return ret;
 }
 
-static void _delete_map_without_data(struct SMap *m)
+static void _delete_map_without_data(SMap* m)
 {
     for (size_t i = 0; i < m->size; i++)
     {
-        struct SNode * n = m->n[i];
-
+        SNode* n = m->n[i];
         while (n)
         {
-            struct SNode * next = n->next;
+            SNode* next = n->next;
             free(n);
             n = next;
         }
@@ -213,7 +214,7 @@ static void _delete_map_without_data(struct SMap *m)
     free(m);
 }
 
-static inline void _release_map(struct SMap *m)
+static inline void _release_map(SMap* m)
 {
     if (__sync_sub_and_fetch(&m->ref, 1) == 0)
     {
@@ -221,11 +222,11 @@ static inline void _release_map(struct SMap *m)
     }
 }
 
-static inline void _update_map(STable* t, struct SMap *m)
+static inline void _update_map(STable* t, SMap* m)
 {
     while (__sync_lock_test_and_set(&t->map_lock, 1)) {}
 
-    struct SMap * old = t->map;
+    SMap* old = t->map;
     t->map = m;
     int ref = __sync_sub_and_fetch(&old->ref, 1);
     __sync_lock_release(&t->map_lock);
@@ -237,14 +238,14 @@ static inline void _update_map(STable* t, struct SMap *m)
 
 struct STable* stable_create()
 {
-    STable*  t = (STable* )malloc(sizeof(*t));
+    STable* t = (STable*)malloc(sizeof(*t));
     memset(t, 0, sizeof(*t));
     t->ref = 1;
     t->magic = MAGIC_NUMBER;
     return t;
 };
 
-void stable_grab(STable*  t)
+void stable_grab(STable* t)
 {
     __sync_add_and_fetch(&t->ref, 1);
 }
@@ -276,16 +277,16 @@ static void _delete_array(struct SArray *a)
     free(a);
 }
 
-static void _delete_map(struct SMap *m)
+static void _delete_map(SMap* m)
 {
     assert(m->ref == 1);
     for (size_t i = 0; i < m->size; i++)
     {
-        struct SNode * n = m->n[i];
+        SNode* n = m->n[i];
 
         while (n)
         {
-            struct SNode * next = n->next;
+            SNode* next = n->next;
             free(n->k);
             _clear_value(&n->v);
             free(n);
@@ -322,11 +323,11 @@ void stable_release(STable* t)
 
         t->magic = 0;
         free(t);
-//		printf("memory = %d\n",MEM);
+//		printf("memory = %d\n", MEM);
     }
 }
 
-static struct SArray* _create_array(size_t n)
+static SArray* _create_array(size_t n)
 {
     struct SArray *a;
     size_t sz = sizeof(*a) + (n - 1) * sizeof(SValue);
@@ -337,7 +338,7 @@ static struct SArray* _create_array(size_t n)
     return a;
 }
 
-static struct SArray* _init_array(STable* t, int cap)
+static SArray* _init_array(STable* t, int cap)
 {
     int size = DEFAULT_SIZE;
     while (cap >= size)
@@ -352,9 +353,9 @@ static struct SArray* _init_array(STable* t, int cap)
 
 static struct SMap* _create_hash(size_t n)
 {
-    struct SMap *m;
+    SMap* m;
     size_t sz = sizeof(*m) + (n - 1) * sizeof(struct SNode *);
-    m = (struct SMap *)malloc(sz);
+    m = (SMap* )malloc(sz);
     memset(m, 0, sz);
     m->ref = 1;
     m->size = n;
@@ -363,7 +364,7 @@ static struct SMap* _create_hash(size_t n)
 
 static struct SMap* _init_map(STable* t)
 {
-    struct SMap *m = _create_hash(DEFAULT_SIZE);
+    SMap* m = _create_hash(DEFAULT_SIZE);
     t->map = m;
     return m;
 }
@@ -374,7 +375,6 @@ static void _search_array(STable* t, size_t idx, SValue* result)
     do
     {
         a = _grab_array(t);
-
         if (idx < a->size)
         {
             *result = a->a[idx];
@@ -400,7 +400,7 @@ static inline uint32_t hash(const char* name, size_t len)
     return h;
 }
 
-static inline int cmp_string(struct string_slot * a, const char*  b, size_t sz)
+static inline int cmp_string(string_slot* a, const char* b, size_t sz)
 {
     return a->sz == sz && memcmp(a->buf, b, sz) == 0;
 }
@@ -408,7 +408,7 @@ static inline int cmp_string(struct string_slot * a, const char*  b, size_t sz)
 static void _search_map(STable* t, const char* key, size_t sz, SValue* result)
 {
     uint32_t h = hash(key, sz);
-    struct SMap *m;
+    SMap* m;
 
     do
     {
@@ -501,7 +501,7 @@ void stable_string(STable* t, const char* key, size_t sz_idx, char* buffer, size
     _search_table(t, key, sz_idx, &tmp);
     if (tmp.type == ST_STRING)
     {
-        struct string_slot *s = _grab_string(tmp.v.s);
+        string_slot*s = _grab_string(tmp.v.s);
 		strcpy_s(buffer, *bufferLen, s->buf);
 		*bufferLen = s->sz;
         _release_string(s);
@@ -515,32 +515,32 @@ void stable_string(STable* t, const char* key, size_t sz_idx, char* buffer, size
 
 void stable_value_string(UTable_value * v, table_setstring_func sfunc, void * ud)
 {
-    struct string_slot *s = _grab_string((struct SString *)v->p);
+    string_slot*s = _grab_string((SString* )v->p);
     sfunc(ud, s->buf, s->sz);
     _release_string(s);
 }
 
-static struct SArray* _expand_array(STable* t, size_t idx)
+static SArray* _expand_array(STable* t, size_t idx)
 {
-    struct SArray * old = t->array;
+    SArray* old = t->array;
     size_t sz = old->size;
     while (sz <= idx)
     {
         sz *= 2;
     }
 
-    struct SArray * a = _create_array(sz);
+    SArray* a = _create_array(sz);
     memcpy(a->a, old->a, old->size * sizeof(SValue));
     _update_array(t, a);
 
     return a;
 }
 
-static void _insert_hash(struct SMap *m, struct string_slot *k, SValue* v)
+static void _insert_hash(SMap* m, string_slot*k, SValue* v)
 {
     uint32_t h = hash(k->buf, k->sz);
     struct SNode **pn = &m->n[h & (m->size - 1)];
-    struct SNode * n = (struct SNode *)malloc(sizeof(*n));
+    SNode* n = (struct SNode *)malloc(sizeof(*n));
     n->next = *pn;
     n->k = k;
     n->v = *v;
@@ -549,14 +549,14 @@ static void _insert_hash(struct SMap *m, struct string_slot *k, SValue* v)
 
 static void _expand_hash(STable* t)
 {
-    struct SMap * old = t->map;
-    struct SMap * m = _create_hash(old->size * 2);
+    SMap* old = t->map;
+    SMap* m = _create_hash(old->size * 2);
     for (size_t i = 0; i < old->size; i++)
     {
-        struct SNode * n = old->n[i];
+        SNode* n = old->n[i];
         while (n)
         {
-            struct SNode * next = n->next;
+            SNode* next = n->next;
             _insert_hash(m, n->k, &n->v);
             n = next;
         }
@@ -566,7 +566,7 @@ static void _expand_hash(STable* t)
 
 static struct SNode* _new_node(const char* key, size_t sz, int type)
 {
-    struct SNode * n = (struct SNode *)malloc(sizeof(*n));
+    SNode* n = (struct SNode *)malloc(sizeof(*n));
     n->next = NULL;
     n->k = new_string(key, sz);
     n->v.type = type;
@@ -608,7 +608,7 @@ static int _insert_array_value(STable* t, size_t idx, SValue* v)
 
 static int _insert_map_value(STable* t, const char* key, size_t sz, SValue* v)
 {
-    struct SMap *m = t->map;
+    SMap* m = t->map;
     if (m == NULL)
     {
         m = _init_map(t);
@@ -630,7 +630,7 @@ static int _insert_map_value(STable* t, const char* key, size_t sz, SValue* v)
         ++depth;
     }
 
-    struct SNode * n = _new_node(key, sz, v->type);
+    SNode* n = _new_node(key, sz, v->type);
     n->v = *v;
     *pn = n;
     if (depth > MAX_HASH_DEPTH)
@@ -720,7 +720,7 @@ int stable_setstring(STable* t, const char* key, size_t sz_idx, const char*  str
         return 1;
     }
 
-    struct SString * s = (struct SString *)malloc(sizeof(*s));
+    SString*  s = (SString* )malloc(sizeof(*s));
     memset(s, 0, sizeof(*s));
     s->slot = new_string(str, sz);
     tmp.type = ST_STRING;
@@ -735,14 +735,14 @@ size_t stable_cap(STable* t)
     size_t s = 0;
     if (t->array)
     {
-        struct SArray * a = _grab_array(t);
+        SArray* a = _grab_array(t);
         s += a->size;
         _release_array(a);
     }
 
     if (t->map)
     {
-        struct SMap * m = _grab_map(t);
+        SMap* m = _grab_map(t);
         if (m)
         {
             s += m->size * MAX_HASH_DEPTH;
@@ -759,7 +759,7 @@ size_t stable_keys(STable* t, STable_key* vv, size_t cap)
 
     if (t->array)
     {
-        struct SArray * a = _grab_array(t);
+        SArray* a = _grab_array(t);
         for (size_t i = 0; i < a->size; i++)
         {
             if (count >= cap)
@@ -785,10 +785,10 @@ size_t stable_keys(STable* t, STable_key* vv, size_t cap)
 
     if (t->map)
     {
-        struct SMap * m = _grab_map(t);
+        SMap* m = _grab_map(t);
         for (size_t i = 0; i < m->size; i++)
         {
-            struct SNode * n =  m->n[i];
+            SNode* n =  m->n[i];
             while (n)
             {
                 if (count >= cap)
