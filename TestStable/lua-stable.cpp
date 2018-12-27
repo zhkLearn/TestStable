@@ -14,6 +14,65 @@ extern "C"
 
 #define MAX_DEPTH 16
 
+
+void stack_dump(lua_State* l)
+{
+	int i;
+	int top = lua_gettop(l);
+
+	printf("%d items in stack 0x%x, from top to bottom:\n", top, l);
+
+	for (i = top; i >= 1; i--)
+	{
+		/* repeat for each level */
+		int t = lua_type(l, i);
+		switch (t)
+		{
+		case LUA_TNIL:  /* nils */
+			printf("	nil\n");
+			break;
+		case LUA_TSTRING:  /* strings */
+			printf("	string   : '%s'\n", lua_tostring(l, i));
+			break;
+		case LUA_TBOOLEAN:  /* booleans */
+			printf("	boolean  : %s\n", lua_toboolean(l, i) ? "true" : "false");
+			break;
+		case LUA_TNUMBER:  /* numbers */
+			printf("	number   : %g\n", lua_tonumber(l, i));
+			break;
+		case LUA_TTABLE:  /* tables */
+			printf("	table    : 0x%x\n", lua_topointer(l, i));
+			break;
+		case LUA_TFUNCTION:  /* functions */
+			printf("	function : 0x%x\n", lua_topointer(l, i));
+			break;
+		case LUA_TUSERDATA:  /* UserData */
+			printf("	userdata : 0x%x\n", lua_topointer(l, i));
+			break;
+		case LUA_TLIGHTUSERDATA:  /* LightUserData */
+			printf("	luserdata: 0x%x\n", lua_topointer(l, i)); 
+			break;
+		case LUA_TTHREAD:  /* LightUserData */
+			printf("	thread   : 0x%x\n", lua_topointer(l, i));
+			break;
+		default:  /* other values */
+			{
+				const char* str = lua_tostring(l, i);
+				if (str)
+				{
+					printf("	%s: %s\n", lua_typename(l, t), lua_tostring(l, i));
+				}
+				else
+				{
+					printf("	%s: 0x%x\n", lua_typename(l, t), lua_topointer(l, i));
+				}
+				break;
+			}
+		}
+	}
+	printf("\n");  /* end the listing */
+}
+
 static void _getvalue(lua_State* L, int ttype, UTable_value* tv)
 {
 	switch (ttype)
@@ -61,12 +120,10 @@ static int _get(lua_State* L)
 	{
 	case LUA_TNUMBER:
 		idx = lua_tointeger(L, 2);
-
 		if (idx <= 0)
 		{
 			return luaL_error(L, "Unsupported index %d", idx);
 		}
-
 		ttype = stable_type(t, NULL, idx - 1, &tv);
 		break;
 
@@ -105,7 +162,6 @@ static const char* _get_key(lua_State* L, int key_idx, size_t *sz_idx, bool from
 	{
 	case LUA_TNUMBER:
 		sz = lua_tointeger(L, key_idx);
-
 		if (sz <= 0)
 		{
 			luaL_error(L, "Unsupported index %lu", sz);
@@ -134,43 +190,18 @@ static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int 
 
 static bool traversal_table(lua_State* L, STable* t, int idx)
 {
-	try
-	{
-		lua_pushvalue(L, idx);
-		lua_pushnil(L);
+	lua_pushvalue(L, idx);
+	lua_pushnil(L);
 
-		while (lua_next(L, -2) != 0)
-		{
-			size_t sz = 0;
-			const char * key = _get_key(L, -2, &sz, false);
-			_set_value(L, t, key, sz, -1);
+	while (lua_next(L, -2) != 0)
+	{
+		size_t sz = 0;
+		const char * key = _get_key(L, -2, &sz, false);
+		_set_value(L, t, key, sz, -1);
 
-			lua_pop(L, 1);
-		}
-
-		lua_pop(L, 2);
+		lua_pop(L, 1);
 	}
-	catch (const char* s)
-	{
-		string errMsg = s;
-		lua_pop(L, 2);
-		cout << errMsg << endl;
-		return false;
-	}
-	catch (std::exception& e)
-	{
-		const char* errMsg = e.what();
-		lua_pop(L, 2);
-		cout << errMsg << endl;
-		return false;
-	}
-	catch (...)
-	{
-		const char* errMsg = lua_tostring(L, -1);
-		lua_pop(L, 3);
-		cout << errMsg << endl;
-		return false;
-	}
+	lua_pop(L, 2);
 
 	return true;
 }
@@ -178,8 +209,39 @@ static bool traversal_table(lua_State* L, STable* t, int idx)
 static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int idx)
 {
 	int type = lua_type(L, idx);
-	int r = 1;
 
+#ifdef _DEBUG
+	const char* typeName = nullptr;
+	switch (type)
+	{
+	case LUA_TNUMBER:
+		typeName = "number";
+		break;
+	case LUA_TBOOLEAN:
+		typeName = "boolean";
+		break;
+	case LUA_TSTRING:
+		typeName = "string";
+		break;
+	case LUA_TTABLE:
+		typeName = "table";
+		break;
+	case LUA_TUSERDATA:
+		typeName = "userdata";
+		break;
+	case LUA_TLIGHTUSERDATA:
+		typeName = "luserdata";
+		break;
+	default:
+		typeName = lua_typename(L, type);
+		break;
+	}
+
+	printf("_set_value, L: 0x%x, STable: 0x%x, Key: %s, Type: %s, Size: %d, Index: %d\n", L, t, key, typeName, sz, idx);
+	stack_dump(L);
+#endif
+
+	int r = 1;
 	switch (type)
 	{
 	case LUA_TNUMBER:
@@ -205,7 +267,12 @@ static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int 
 		if (!r)
 		{
 			if (traversal_table(L, tChild, idx))
+			{
 				lua_pushlightuserdata(L, tChild);
+#ifdef _DEBUG
+				printf("lua_pushlightuserdata: 0x%x\n", tChild);
+#endif
+			}
 		}
 		break;
 	}
@@ -229,7 +296,7 @@ static int _settable(lua_State* L)
 {
 	STable* t = (STable *)lua_touserdata(L, 1);
 	size_t sz;
-	const char * key = _get_key(L, 2, &sz);
+	const char* key = _get_key(L, 2, &sz);
 	if (stable_settable(t, key, sz, (STable *)lua_touserdata(L, 3)))
 	{
 		_error(L, key, sz, LUA_TLIGHTUSERDATA);
@@ -313,7 +380,6 @@ static int _next_key(lua_State* L, STable *t)
 static int _next_index(lua_State* L, STable *t, int prev_index)
 {
 	int array_part = lua_tointeger(L, lua_upvalueindex(1));
-
 	if (prev_index >= array_part)
 	{
 		return _next_key(L, t);
@@ -366,7 +432,6 @@ static int _pairs(lua_State* L)
 	size_t cap = stable_cap(t);
 	STable_key* keys = (STable_key*)malloc(cap * sizeof(*keys));
 	int size = stable_keys(t, keys, cap);
-
 	if (size == 0)
 	{
 		lua_pushinteger(L, 0);
@@ -419,19 +484,19 @@ static int _pairs(lua_State* L)
 	return 2;
 }
 
-static int _init_mt(lua_State* L)
+static int _init_metaTable(lua_State* L)
 {
-	lua_pushlightuserdata(L, NULL);
-	int m = lua_getmetatable(L, -1);
 	luaL_Reg lib[] =
 	{
-		{ "__index", _get },
-		{ "__newindex", _set },
-		{ "__pairs", _pairs },
-		{ "__ipairs", _ipairs },
-		{ NULL, NULL },
+		{ "__index",	_get },
+		{ "__newindex",	_set },
+		{ "__pairs",	_pairs },
+		{ "__ipairs",	_ipairs },
+		{ NULL,			NULL },
 	};
 
+	lua_pushlightuserdata(L, NULL);
+	int m = lua_getmetatable(L, -1);
 	if (m == 0)
 	{
 		luaL_newlibtable(L, lib);
@@ -505,25 +570,27 @@ int luaopen_stable_raw(lua_State* L)
 
 	luaL_Reg l[] =
 	{
-		{ "create", _create },
-		{ "decref", _decref },
-		{ "incref", _incref },
-		{ "getref", _getref },
-		{ "get", _get },
-		{ "set", _set },
-		{ "settable", _settable },
-		{ "pairs", _pairs },
-		{ "ipairs", _ipairs },
-		{ "init", _init_mt },
-		{ "dump", _dump },
-		{ NULL, NULL },
+		{ "create",		_create },
+		{ "decref",		_decref },
+		{ "incref",		_incref },
+		{ "getref",		_getref },
+		{ "get",		_get },
+		{ "set",		_set },
+		{ "settable",	_settable },
+		{ "pairs",		_pairs },
+		{ "ipairs",		_ipairs },
+		{ "init",		_init_metaTable },
+		{ "dump",		_dump },
+		{ NULL,			NULL },
 	};
 
 	luaL_newlib(L, l);
 
 	lua_createtable(L, 0, 1);
+
 	lua_pushcfunction(L, _release);
 	lua_setfield(L, -2, "__gc");
+
 	lua_pushcclosure(L, _grab, 1);
 	lua_setfield(L, -2, "grab");
 
