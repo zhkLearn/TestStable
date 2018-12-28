@@ -17,8 +17,6 @@ t.hello = {world = true, "one", "two", 3, False = false, testT = {true, 3, testt
 
 print("\n4:")
 
--- you can send t (a lightuserdata) to other lua state. (thread safe)
-
 t.subT = subT
 sraw.dump(t)
 
