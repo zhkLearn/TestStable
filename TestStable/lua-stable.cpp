@@ -652,8 +652,8 @@ int luaopen_stable_raw(lua_State* L)
 
 	lua_createtable(L, 0, 1);		// name, ltable, table
 	lua_pushcfunction(L, _release);	// name, ltable, table, fun_r
-	lua_setfield(L, -2, "__gc");	// name, ltable, table<1>
-	lua_pushcclosure(L, _grab, 1);	// name, ltable, fun_g
+	lua_setfield(L, -2, "__gc");	// name, ltable, table<param 1>
+	lua_pushcclosure(L, _grab, 1);	// name, ltable, fun__g
 
 	lua_setfield(L, -2, "grab");	// name, ltable
 
