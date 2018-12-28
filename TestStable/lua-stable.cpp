@@ -29,42 +29,42 @@ void stack_dump(lua_State* l)
 		switch (t)
 		{
 		case LUA_TNIL:  /* nils */
-			printf("	nil\n");
+			printf("	%5d  %5d	nil\n", i - top - 1, i);
 			break;
 		case LUA_TSTRING:  /* strings */
-			printf("	string   : '%s'\n", lua_tostring(l, i));
+			printf("	%5d  %5d	string   : '%s'\n", i - top - 1, i, lua_tostring(l, i));
 			break;
 		case LUA_TBOOLEAN:  /* booleans */
-			printf("	boolean  : %s\n", lua_toboolean(l, i) ? "true" : "false");
+			printf("	%5d  %5d	boolean  : %s\n", i - top - 1, i, lua_toboolean(l, i) ? "true" : "false");
 			break;
 		case LUA_TNUMBER:  /* numbers */
-			printf("	number   : %g\n", lua_tonumber(l, i));
+			printf("	%5d  %5d	number   : %g\n", i - top - 1, i, lua_tonumber(l, i));
 			break;
 		case LUA_TTABLE:  /* tables */
-			printf("	table    : 0x%x\n", lua_topointer(l, i));
+			printf("	%5d  %5d	table    : 0x%x\n", i - top - 1, i, lua_topointer(l, i));
 			break;
 		case LUA_TFUNCTION:  /* functions */
-			printf("	function : 0x%x\n", lua_topointer(l, i));
+			printf("	%5d  %5d	function : 0x%x\n", i - top - 1, i, lua_topointer(l, i));
 			break;
 		case LUA_TUSERDATA:  /* UserData */
-			printf("	userdata : 0x%x\n", lua_topointer(l, i));
+			printf("	%5d  %5d	userdata : 0x%x\n", i - top - 1, i, lua_topointer(l, i));
 			break;
 		case LUA_TLIGHTUSERDATA:  /* LightUserData */
-			printf("	luserdata: 0x%x\n", lua_topointer(l, i)); 
+			printf("	%5d  %5d	luserdata: 0x%x\n", i - top - 1, i, lua_topointer(l, i));
 			break;
 		case LUA_TTHREAD:  /* LightUserData */
-			printf("	thread   : 0x%x\n", lua_topointer(l, i));
+			printf("	%5d  %5d	thread   : 0x%x\n", i - top - 1, i, lua_topointer(l, i));
 			break;
 		default:  /* other values */
 			{
 				const char* str = lua_tostring(l, i);
 				if (str)
 				{
-					printf("	%s: %s\n", lua_typename(l, t), lua_tostring(l, i));
+					printf("	%5d  %5d	%s: %s\n", i - top - 1, i, lua_typename(l, t), lua_tostring(l, i));
 				}
 				else
 				{
-					printf("	%s: 0x%x\n", lua_typename(l, t), lua_topointer(l, i));
+					printf("	%5d  %5d	%s: 0x%x\n", i - top - 1, i, lua_typename(l, t), lua_topointer(l, i));
 				}
 				break;
 			}
@@ -216,9 +216,18 @@ static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int 
 
 static bool traversal_table(lua_State* L, STable* t, int idx)
 {
-	lua_pushvalue(L, idx);
+	lua_checkstack(L, 1);
 	lua_pushnil(L);
 
+#ifdef _DEBUG
+	printf("traversal_table(L: 0x%x, STable: 0x%x)\n", L, t);
+	printf("lua_pushnil\n");
+	printf("lua_next\n");
+#endif
+
+	//lua_next从栈顶弹出一个键，然后把索引指定的表中的一个键-值对压入栈。如果表中以无更多元素，那么lua_next将返回0（什么也不压栈）。
+	//在遍历时，不要直接对键调用lua_tolstring，除非你知道这个键一定是一个字符串。对非字符串调用lua_tolstring有可能改变给定索引位置的值；
+	//这会对下一次调用lua_next造成影响。
 	while (lua_next(L, -2) != 0)
 	{
 		size_t sz = 0;
@@ -226,8 +235,20 @@ static bool traversal_table(lua_State* L, STable* t, int idx)
 		_set_value(L, t, key, sz, -1);
 
 		lua_pop(L, 1);
+
+#ifdef _DEBUG
+		printf("lua_pop: 1\n");
+		printf("lua_next\n");
+#endif
+
 	}
-	lua_pop(L, 2);
+	lua_pop(L, 1);
+
+#ifdef _DEBUG
+	printf("lua_pop: 1\n");
+	printf("traversal_table(L: 0x%x, STable: 0x%x) end\n", L, t);
+	stack_dump(L);
+#endif
 
 	return true;
 }
@@ -294,9 +315,11 @@ static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int 
 		{
 			if (traversal_table(L, tChild, idx))
 			{
-				lua_pushlightuserdata(L, tChild);
+				lua_checkstack(L, 1);
+				lua_pushnil(L);	// place holder for to be popped in nested traversal_table()
 #ifdef _DEBUG
-				printf("lua_pushlightuserdata: 0x%x\n", tChild);
+				printf("lua_pushnil\n");
+				stack_dump(L);
 #endif
 			}
 		}
@@ -603,37 +626,36 @@ static int _dump(lua_State* L)
 	return 0;
 }
 
+luaL_Reg l[] =
+{
+	{ "create",		_create },
+	{ "incref",		_incref },
+	{ "decref",		_decref },
+	{ "getref",		_getref },
+	//{ "get",		_get },
+	//{ "set",		_set },
+	//{ "settable",	_settable },
+	//{ "pairs",	_pairs },
+	//{ "ipairs",	_ipairs },
+	{ "init",		_init_metaTable },
+	{ "share",		_share },
+	{ "acquire",	_acquire },
+	{ "dump",		_dump },
+	{ NULL,			NULL },
+};
+
 int luaopen_stable_raw(lua_State* L)
 {
 	luaL_checkversion(L);
 
-	luaL_Reg l[] =
-	{
-		{ "create",		_create },
-		{ "incref",		_incref },
-		{ "decref",		_decref },
-		{ "getref",		_getref },
-		//{ "get",		_get },
-		//{ "set",		_set },
-		//{ "settable",	_settable },
-		//{ "pairs",	_pairs },
-		//{ "ipairs",	_ipairs },
-		{ "init",		_init_metaTable },
-		{ "share",		_share },
-		{ "acquire",	_acquire },
-		{ "dump",		_dump },
-		{ NULL,			NULL },
-	};
+	luaL_newlib(L, l);				// name, ltable
 
-	luaL_newlib(L, l);
+	lua_createtable(L, 0, 1);		// name, ltable, table
+	lua_pushcfunction(L, _release);	// name, ltable, table, fun_r
+	lua_setfield(L, -2, "__gc");	// name, ltable, table<1>
+	lua_pushcclosure(L, _grab, 1);	// name, ltable, fun_g
 
-	lua_createtable(L, 0, 1);
-
-	lua_pushcfunction(L, _release);
-	lua_setfield(L, -2, "__gc");
-
-	lua_pushcclosure(L, _grab, 1);
-	lua_setfield(L, -2, "grab");
+	lua_setfield(L, -2, "grab");	// name, ltable
 
 	return 1;
 }
