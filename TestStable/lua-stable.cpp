@@ -626,26 +626,26 @@ static int _dump(lua_State* L)
 	return 0;
 }
 
-luaL_Reg l[] =
-{
-	{ "create",		_create },
-	{ "incref",		_incref },
-	{ "decref",		_decref },
-	{ "getref",		_getref },
-	//{ "get",		_get },
-	//{ "set",		_set },
-	//{ "settable",	_settable },
-	//{ "pairs",	_pairs },
-	//{ "ipairs",	_ipairs },
-	{ "init",		_init_metaTable },
-	{ "share",		_share },
-	{ "acquire",	_acquire },
-	{ "dump",		_dump },
-	{ NULL,			NULL },
-};
-
 int luaopen_stable_raw(lua_State* L)
 {
+	luaL_Reg l[] =
+	{
+		{ "create",		_create },
+		{ "incref",		_incref },
+		{ "decref",		_decref },
+		{ "getref",		_getref },
+		//{ "get",		_get },
+		//{ "set",		_set },
+		//{ "settable",	_settable },
+		//{ "pairs",	_pairs },
+		//{ "ipairs",	_ipairs },
+		{ "init",		_init_metaTable },
+		{ "share",		_share },
+		{ "acquire",	_acquire },
+		{ "dump",		_dump },
+		{ NULL,			NULL },
+	};
+
 	luaL_checkversion(L);
 
 	luaL_newlib(L, l);				// name, ltable
