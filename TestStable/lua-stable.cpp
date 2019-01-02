@@ -557,16 +557,18 @@ static int _init_metaTable(lua_State* L)
 		{ NULL,			NULL },
 	};
 
-	lua_pushlightuserdata(L, NULL);
+	lua_pushlightuserdata(L, NULL);		//0x0
+
 	int m = lua_getmetatable(L, -1);
 	if (m == 0)
 	{
-		luaL_newlibtable(L, lib);
+		luaL_newlibtable(L, lib);		//0x0, table_lib
 	}
 
-	luaL_setfuncs(L, lib, 0);
-	lua_setmetatable(L, -2);
-	lua_pop(L, 1);
+	luaL_setfuncs(L, lib, 0);			//0x0, table_lib
+	lua_setmetatable(L, -2);			//0x0
+
+	lua_pop(L, 1);						//
 
 	return 0;
 }
