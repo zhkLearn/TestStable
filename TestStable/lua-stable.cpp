@@ -577,6 +577,10 @@ static int _create(lua_State* L)
 {
 	STable* t = stable_create();
 	lua_pushlightuserdata(L, t);
+
+	luaL_getmetatable(L, "ShareTable");
+	lua_setmetatable(L, -2);
+	
 	return 1;
 }
 
@@ -630,6 +634,15 @@ static int _dump(lua_State* L)
 
 int luaopen_stable_raw(lua_State* L)
 {
+	luaL_Reg lib_methods[] =
+	{
+		{ "__index",	_get },
+		{ "__newindex",	_set },
+		{ "__pairs",	_pairs },
+		{ "__ipairs",	_ipairs },
+		{ NULL,			NULL },
+	};
+
 	luaL_Reg l[] =
 	{
 		{ "create",		_create },
@@ -641,7 +654,7 @@ int luaopen_stable_raw(lua_State* L)
 		//{ "settable",	_settable },
 		//{ "pairs",	_pairs },
 		//{ "ipairs",	_ipairs },
-		{ "init",		_init_metaTable },
+		//{ "init",		_init_metaTable },
 		{ "share",		_share },
 		{ "acquire",	_acquire },
 		{ "dump",		_dump },
@@ -650,14 +663,17 @@ int luaopen_stable_raw(lua_State* L)
 
 	luaL_checkversion(L);
 
-	luaL_newlib(L, l);				// name, ltable
+	luaL_newmetatable(L, "ShareTable");
+	luaL_setfuncs(L, lib_methods, 0);
 
-	lua_createtable(L, 0, 1);		// name, ltable, table
-	lua_pushcfunction(L, _release);	// name, ltable, table, fun_r
-	lua_setfield(L, -2, "__gc");	// name, ltable, table<param 1>
-	lua_pushcclosure(L, _grab, 1);	// name, ltable, fun__g
+	luaL_newlib(L, l);				// name, mtable, ltable
 
-	lua_setfield(L, -2, "grab");	// name, ltable
+	lua_createtable(L, 0, 1);		// name, mtable, ltable, table
+	lua_pushcfunction(L, _release);	// name, mtable, ltable, table, fun_r
+	lua_setfield(L, -2, "__gc");	// name, mtable, ltable, table<param 1>
+	lua_pushcclosure(L, _grab, 1);	// name, mtable, ltable, fun__g
+
+	lua_setfield(L, -2, "grab");	// name, mtable, ltable
 
 	return 1;
 }
