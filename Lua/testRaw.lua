@@ -1,7 +1,9 @@
 print("\n1:")
 
 --local sraw = require "StableRaw"
-sraw.init()  -- init lightuserdata metatable
+print("\n1.1:")
+
+--sraw.init()  -- init lightuserdata metatable
 
 
 print("\n2:")
@@ -41,3 +43,8 @@ local fromC = sraw.acquire("tname")
 dumpSTable(fromC)
 
 print("\n6:")
+
+local t2 = sraw.create()
+t2.values = {"Monday", "Tuesday", "Wednesday"}
+dumpSTable(t2)
+
