@@ -520,33 +520,6 @@ static int _pairs(lua_State* L)
 	return 2;
 }
 
-static int _init_metaTable(lua_State* L)
-{
-	luaL_Reg lib[] =
-	{
-		{ "__index",	_get },
-		{ "__newindex",	_set },
-		{ "__pairs",	_pairs },
-		{ "__ipairs",	_ipairs },
-		{ NULL,			NULL },
-	};
-
-	lua_pushlightuserdata(L, NULL);		//0x0
-
-	int m = lua_getmetatable(L, -1);
-	if (m == 0)
-	{
-		luaL_newlibtable(L, lib);		//0x0, table_lib
-	}
-
-	luaL_setfuncs(L, lib, 0);			//0x0, table_lib
-	lua_setmetatable(L, -2);			//0x0
-
-	lua_pop(L, 1);						//
-
-	return 0;
-}
-
 static int _new(lua_State* L)
 {
 	STable* t = stable_create();
