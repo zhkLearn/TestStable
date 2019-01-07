@@ -17,7 +17,7 @@ static void test(struct STable *root)
     stable_setstring(sub, TINDEX(0), TKEY("world"));
     stable_setstring(sub, TINDEX(1), TKEY("This is a test string."));
     stable_setstring(sub, TKEY("key"), TKEY("value"));
-	stable_dump(root, 0);
+	stable_dump(root, 0, true);
 }
 
 extern "C"

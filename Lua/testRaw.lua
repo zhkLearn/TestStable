@@ -8,7 +8,7 @@ print("\n1.1:")
 
 print("\n2:")
 
-local t = sraw.create()
+local t = sraw.new()
 
 
 print("\n3:")
@@ -20,7 +20,7 @@ t.hello = {world = true, "one", "two", 3, False = false, testT = {true, 3, testt
 print("\n4:")
 
 t.subT = subT
-sraw.dump(t)
+sraw.dump(t, true)
 
 print("\n5:")
 
@@ -41,10 +41,11 @@ sraw.share(t)
 
 local fromC = sraw.acquire("tname")
 dumpSTable(fromC)
+fromC = nil
 
 print("\n6:")
 
-local t2 = sraw.create()
+local t2 = sraw.new()
 t2.values = {"Monday", "Tuesday", "Wednesday"}
-dumpSTable(t2)
+sraw.dump(t2, true)
 

@@ -108,7 +108,7 @@ static void _getvalue(lua_State* L, int ttype, UTable_value* tv)
 
 static int _get(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
 	int type = lua_type(L, 2);
 	int idx;
 	int ttype;
@@ -142,7 +142,7 @@ static int _get(lua_State* L)
 
 static int _share(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
 	
 	//TODO
 
@@ -341,35 +341,9 @@ static void _set_value(lua_State* L, STable* t, const char *key, size_t sz, int 
 
 }
 
-static int _settable(lua_State* L)
-{
-	stack_dump(L);
-
-	STable* t = (STable *)lua_touserdata(L, 1);
-	if (!t)
-	{
-		luaL_error(L, "table is nil");
-	}
-	size_t sz;
-	const char* key = _get_key(L, 2, &sz);
-
-	STable* tValue = (STable *)lua_touserdata(L, 3);
-	if (!tValue)
-	{
-		luaL_error(L, "value is not a table");
-	}
-
-	if (stable_settable(t, key, sz, tValue))
-	{
-		_error(L, key, sz, LUA_TLIGHTUSERDATA);
-	}
-
-	return 0;
-}
-
 static int _set(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
 	size_t sz;
 	const char * key = _get_key(L, 2, &sz);
 	_set_value(L, t, key, sz, 3);
@@ -573,7 +547,7 @@ static int _init_metaTable(lua_State* L)
 	return 0;
 }
 
-static int _create(lua_State* L)
+static int _new(lua_State* L)
 {
 	STable* t = stable_create();
 	lua_pushlightuserdata(L, t);
@@ -584,42 +558,23 @@ static int _create(lua_State* L)
 	return 1;
 }
 
-static int _release(lua_State* L)
-{
-	STable ** t = (STable **)lua_touserdata(L, 1);
-	stable_release(*t);
-	return 0;
-}
-
-static int _grab(lua_State* L)
-{
-	luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
-	STable* t = (STable *)lua_touserdata(L, 1);
-	stable_grab(t);
-	STable ** ud = (STable **)lua_newuserdata(L, sizeof(STable *));
-	*ud = t;
-	lua_pushvalue(L, lua_upvalueindex(1));
-	lua_setmetatable(L, -2);
-	return 1;
-}
-
 static int _incref(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
 	stable_grab(t);
 	return 0;
 }
 
 static int _decref(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
 	stable_release(t);
 	return 0;
 }
 
 static int _getref(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
 	int ref = stable_getref(t);
 	lua_pushinteger(L, ref);
 	return 1;
@@ -627,8 +582,9 @@ static int _getref(lua_State* L)
 
 static int _dump(lua_State* L)
 {
-	STable* t = (STable *)lua_touserdata(L, 1);
-	stable_dump(t, 0);
+	STable* t = (STable *)luaL_checkudata(L, 1, "ShareTable");
+	luaL_checkany(L, 2);
+	stable_dump(t, 0, lua_toboolean(L, 2));
 	return 0;
 }
 
@@ -645,16 +601,10 @@ int luaopen_stable_raw(lua_State* L)
 
 	luaL_Reg l[] =
 	{
-		{ "create",		_create },
+		{ "new",		_new },
 		{ "incref",		_incref },
 		{ "decref",		_decref },
 		{ "getref",		_getref },
-		//{ "get",		_get },
-		//{ "set",		_set },
-		//{ "settable",	_settable },
-		//{ "pairs",	_pairs },
-		//{ "ipairs",	_ipairs },
-		//{ "init",		_init_metaTable },
 		{ "share",		_share },
 		{ "acquire",	_acquire },
 		{ "dump",		_dump },
@@ -666,14 +616,7 @@ int luaopen_stable_raw(lua_State* L)
 	luaL_newmetatable(L, "ShareTable");
 	luaL_setfuncs(L, lib_methods, 0);
 
-	luaL_newlib(L, l);				// name, mtable, ltable
-
-	lua_createtable(L, 0, 1);		// name, mtable, ltable, table
-	lua_pushcfunction(L, _release);	// name, mtable, ltable, table, fun_r
-	lua_setfield(L, -2, "__gc");	// name, mtable, ltable, table<param 1>
-	lua_pushcclosure(L, _grab, 1);	// name, mtable, ltable, fun__g
-
-	lua_setfield(L, -2, "grab");	// name, mtable, ltable
+	luaL_newlib(L, l);
 
 	return 1;
 }

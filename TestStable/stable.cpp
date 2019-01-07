@@ -810,7 +810,7 @@ size_t stable_keys(STable* t, STable_key* vv, size_t cap)
     return count;
 }
 
-void stable_dump(STable* root, size_t depth)
+void stable_dump(STable* root, size_t depth, bool asLuaCode)
 {
 	size_t size = stable_cap(root);
 	STable_key* keys = (STable_key*)malloc(size * sizeof(*keys));
@@ -825,7 +825,8 @@ void stable_dump(STable* root, size_t depth)
 
 		if (keys[i].key == NULL)
 		{
-			printf("[%" PRIuPTR "] = ", keys[i].sz_idx);
+			if (!asLuaCode)
+				printf("[%" PRIuPTR "] = ", keys[i].sz_idx);
 		}
 		else
 		{
@@ -867,7 +868,7 @@ void stable_dump(STable* root, size_t depth)
 		{
 			struct STable * sub = stable_table(root, keys[i].key, keys[i].sz_idx);
 			printf("{\n");
-			stable_dump(sub, depth + 1);
+			stable_dump(sub, depth + 1, asLuaCode);
 			for (int ident = 0; ident < depth; ++ident)
 				printf("  ");
 			printf("}");
@@ -877,7 +878,11 @@ void stable_dump(STable* root, size_t depth)
 			assert(0);
 			break;
 		}
-		printf("\n");
+
+		if (i != size - 1)
+			printf(",\n");
+		else
+			printf("\n");
 	}
 
 	free(keys);

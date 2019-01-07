@@ -8,8 +8,7 @@
 读取指针引用的C结构数据。这个读写过程是线程安全的。
 */
 
-#ifndef SHARE_TABLE_H
-#define SHARE_TABLE_H
+#pragma once
 
 #include <stdint.h>
 #include <stddef.h>
@@ -67,6 +66,4 @@ int			stable_setstring(STable*, const char* key, size_t sz_idx, const char* str,
 size_t		stable_cap(STable*);
 size_t		stable_keys(STable*, STable_key* v, size_t cap);
 
-void		stable_dump(STable* root, size_t depth);
-
-#endif
+void		stable_dump(STable* root, size_t depth, bool asLuaCode);
