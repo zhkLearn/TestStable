@@ -13,5 +13,27 @@ print("\n3:")
 
 t.subT = subT
 t.hello[0] = nil
+
+print("\ndump(t):")
 SharedTable.dump(t, false)
 
+print("\n4:")
+function dumpSTable(tbl)
+	for k,v in ipairs(tbl) do  -- or use sraw.pairs
+		if type(v) == "userdata" or type(v) == "table" then
+			print(k)
+			dumpSTable(v)
+		else
+			print(k, v)
+		end
+	end
+end
+
+t[0] = 10
+t[1] = nil
+t[2] = 20
+print("\ndumpSTable(t):")
+dumpSTable(t)
+
+print("\ndump(t):")
+SharedTable.dump(t, false)

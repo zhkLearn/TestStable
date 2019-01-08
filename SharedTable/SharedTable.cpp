@@ -100,19 +100,29 @@ public:
 	// Note: this is not equal to lua's #
 	size_t Size() const
 	{
-		return _arraryContainer.size() + _mapContainer.size();
+		return _arrayContainer.size() + _mapContainer.size();
+	}
+
+	int GetArrayStartIndex() const
+	{
+		if (_arrayContainer.size() != 0)
+		{
+			return _arrayContainer.begin()->first - 1;
+		}
+
+		return 0;
 	}
 
 	bool HasKey(int i) const
 	{
-		auto cit = _arraryContainer.find(i);
-		return (cit != _arraryContainer.end());
+		auto cit = _arrayContainer.find(i);
+		return (cit != _arrayContainer.end());
 	}
 
 	bool GetAt(int i, SValue& out) const
 	{
-		auto cit = _arraryContainer.find(i);
-		if (cit != _arraryContainer.end())
+		auto cit = _arrayContainer.find(i);
+		if (cit != _arrayContainer.end())
 		{
 			out = cit->second;
 			return true;
@@ -123,15 +133,15 @@ public:
 
 	void SetAt(int i, const SValue& val)
 	{
-		_arraryContainer[i] = val;
+		_arrayContainer[i] = val;
 	}
 
 	void RemoveAt(int i)
 	{
-		auto it = _arraryContainer.find(i);
-		if (it != _arraryContainer.end())
+		auto it = _arrayContainer.find(i);
+		if (it != _arrayContainer.end())
 		{
-			_arraryContainer.erase(it);
+			_arrayContainer.erase(it);
 		}
 	}
 
@@ -201,7 +211,7 @@ public:
 	{
 		size_t t = 0, count = Size();
 
-		for (auto item : _arraryContainer)
+		for (auto item : _arrayContainer)
 		{
 			for (int j = 0; j < depth; j++)
 				printf("  ");
@@ -242,21 +252,9 @@ public:
 
 private:
 
-	std::map<int, SValue>			_arraryContainer;
+	std::map<int, SValue>			_arrayContainer;
 	std::map<std::string, SValue>	_mapContainer;
 };
-
-static void _error(lua_State* L, const char* key, size_t sz, int type)
-{
-	if (key == NULL)
-	{
-		luaL_error(L, "Can't set %d with type %s", (int)sz, lua_typename(L, type));
-	}
-	else
-	{
-		luaL_error(L, "Can't set %s with type %s", key, lua_typename(L, type));
-	}
-}
 
 void stack_dump(lua_State* l)
 {
@@ -503,6 +501,38 @@ static int _set(lua_State* L)
 	return 0;
 }
 
+static void _get_value(lua_State* L, const SharedTable::SValue& value)
+{
+	switch (value.GetType())
+	{
+	case SharedTable::eNil:
+		lua_pushnil(L);
+		break;
+	case SharedTable::eString:
+		lua_pushlstring(L, value._str.c_str(), value._str.length());
+		break;
+	case SharedTable::eDouble:
+		lua_pushnumber(L, value._d);
+		break;
+	case SharedTable::eBool:
+		lua_pushboolean(L, value._b);
+		break;
+	case SharedTable::eSharedTable:
+	{
+		SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
+		*pp = value._pSTable;
+
+		luaL_getmetatable(L, "SharedTable");
+		lua_setmetatable(L, -2);
+	}
+	break;
+	case SharedTable::eVoid:
+		lua_pushlightuserdata(L, value._pVoid);
+		break;
+	}
+
+}
+
 static int _get(lua_State* L)
 {
 	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
@@ -528,39 +558,16 @@ static int _get(lua_State* L)
 		return luaL_error(L, "Unsupported key type %s", lua_typename(L, type));
 	}
 
-	switch (value.GetType())
-	{
-	case SharedTable::eNil:
-		lua_pushnil(L);
-		break;
-	case SharedTable::eString:
-		lua_pushlstring(L, value._str.c_str(), value._str.length());
-		break;
-	case SharedTable::eDouble:
-		lua_pushnumber(L, value._d);
-		break;
-	case SharedTable::eBool:
-		lua_pushboolean(L, value._b);
-		break;
-	case SharedTable::eSharedTable:
-		{
-			SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
-			*pp = value._pSTable;
-
-			luaL_getmetatable(L, "SharedTable");
-			lua_setmetatable(L, -2);
-		}
-		break;
-	case SharedTable::eVoid:
-		lua_pushlightuserdata(L, value._pVoid);
-		break;
-	}
+	_get_value(L, value);
 
 	return 1;
 }
 
 static int _gc(lua_State* L)
 {
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	delete t;
+
 	return 0;
 }
 
@@ -584,6 +591,34 @@ static int _dump(lua_State* L)
 	return 0;
 }
 
+
+static int _iter_stable_array(lua_State* L)
+{
+	int idx = luaL_checkinteger(L, 2);
+	lua_pushinteger(L, idx + 1);
+
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable::SValue value;
+
+	if (!t->GetAt(idx + 1, value))
+		return 0;
+
+	_get_value(L, value);
+
+	return 2;
+}
+
+static int _ipairs(lua_State* L)
+{
+	lua_pushcfunction(L, _iter_stable_array);
+	lua_pushvalue(L, 1);
+
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	lua_pushinteger(L, t->GetArrayStartIndex());
+
+	return 3;
+}
+
 int luaopen_stable_raw(lua_State* L)
 {
 	luaL_Reg lib_methods[] =
@@ -592,7 +627,7 @@ int luaopen_stable_raw(lua_State* L)
 		{ "__newindex",	_set },
 		{ "__gc",		_gc },
 		//{ "__pairs",	_pairs },
-		//{ "__ipairs",	_ipairs },
+		{ "__ipairs",	_ipairs },
 		{ NULL,			NULL },
 	};
 
