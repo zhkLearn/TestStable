@@ -19,7 +19,7 @@ SharedTable.dump(t, false)
 
 print("\n4:")
 function dumpSTable(tbl)
-	for k,v in ipairs(tbl) do  -- or use sraw.pairs
+	for k,v in pairs(tbl) do  -- or use sraw.pairs
 		if type(v) == "userdata" or type(v) == "table" then
 			print(k)
 			dumpSTable(v)

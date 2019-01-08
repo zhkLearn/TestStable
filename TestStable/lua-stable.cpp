@@ -472,7 +472,6 @@ static int _pairs(lua_State* L)
 	{
 		lua_pushinteger(L, 0);
 		lua_pushinteger(L, 0);
-		lua_pushinteger(L, 0);
 		lua_pushnil(L);
 	}
 	else

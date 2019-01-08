@@ -103,16 +103,22 @@ public:
 		return _arrayContainer.size() + _mapContainer.size();
 	}
 
+	size_t ArraySize() const
+	{
+		return _arrayContainer.size();
+	}
+
 	int GetArrayStartIndex() const
 	{
 		if (_arrayContainer.size() != 0)
 		{
-			return _arrayContainer.begin()->first - 1;
+			return _arrayContainer.begin()->first;
 		}
 
 		return 0;
 	}
 
+	//------------------------------------------------------------------
 	bool HasKey(int i) const
 	{
 		auto cit = _arrayContainer.find(i);
@@ -145,6 +151,23 @@ public:
 		}
 	}
 
+	bool GetArrayPair(int offset, int& key, SValue& value) const
+	{
+		if (offset < _arrayContainer.size())
+		{
+			ArrayType::const_iterator it = _arrayContainer.cbegin();
+			for (int i = 0; i < offset; ++i)
+				it++;
+
+			key = it->first;
+			value = it->second;
+		}
+
+		return false;
+	}
+
+
+	//------------------------------------------------------------------
 	bool HasKey(const std::string& key) const
 	{
 		auto cit = _mapContainer.find(key);
@@ -177,6 +200,22 @@ public:
 		}
 	}
 
+	bool GetMapPair(int offset, std::string& key, SValue& value) const
+	{
+		if (offset < _mapContainer.size())
+		{
+			MapType::const_iterator it = _mapContainer.cbegin();
+			for (int i = 0; i < offset; ++i)
+				it++;
+
+			key = it->first;
+			value = it->second;
+		}
+
+		return false;
+	}
+
+	//------------------------------------------------------------------
 	void DumpValue(const SValue& value, int depth, bool asLuaCode = true) const
 	{
 		switch (value._eType)
@@ -252,8 +291,11 @@ public:
 
 private:
 
-	std::map<int, SValue>			_arrayContainer;
-	std::map<std::string, SValue>	_mapContainer;
+	typedef std::map<int, SValue>			ArrayType;
+	typedef std::map<std::string, SValue>	MapType;
+
+	ArrayType	_arrayContainer;
+	MapType		_mapContainer;
 };
 
 void stack_dump(lua_State* l)
@@ -518,14 +560,14 @@ static void _get_value(lua_State* L, const SharedTable::SValue& value)
 		lua_pushboolean(L, value._b);
 		break;
 	case SharedTable::eSharedTable:
-	{
-		SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
-		*pp = value._pSTable;
+		{
+			SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
+			*pp = value._pSTable;
 
-		luaL_getmetatable(L, "SharedTable");
-		lua_setmetatable(L, -2);
-	}
-	break;
+			luaL_getmetatable(L, "SharedTable");
+			lua_setmetatable(L, -2);
+		}
+		break;
 	case SharedTable::eVoid:
 		lua_pushlightuserdata(L, value._pVoid);
 		break;
@@ -565,8 +607,8 @@ static int _get(lua_State* L)
 
 static int _gc(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
-	delete t;
+	//SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	//delete t;
 
 	return 0;
 }
@@ -599,7 +641,6 @@ static int _iter_stable_array(lua_State* L)
 
 	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
 	SharedTable::SValue value;
-
 	if (!t->GetAt(idx + 1, value))
 		return 0;
 
@@ -614,9 +655,56 @@ static int _ipairs(lua_State* L)
 	lua_pushvalue(L, 1);
 
 	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
-	lua_pushinteger(L, t->GetArrayStartIndex());
+	lua_pushinteger(L, t->GetArrayStartIndex() - 1);
 
 	return 3;
+}
+
+static int _iter_stable_all(lua_State* L)
+{
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	size_t count = t->Size();
+	size_t countArray = t->ArraySize();
+
+	int index = lua_tointeger(L, lua_upvalueindex(1));
+	if (index < countArray)
+	{
+		int key;
+		SharedTable::SValue value;
+		t->GetArrayPair(index, key, value);
+
+		lua_pushinteger(L, key);
+		_get_value(L, value);
+	}
+	else if (index < count)
+	{
+		std::string key;
+		SharedTable::SValue value;
+		t->GetMapPair(index - countArray, key, value);
+
+		lua_pushlstring(L, key.c_str(), key.length());
+		_get_value(L, value);
+	}
+	else
+	{
+		lua_pushnil(L);
+		lua_pushnil(L);
+	}
+
+	lua_pushinteger(L, index + 1);
+	lua_replace(L, lua_upvalueindex(1));
+
+	return 2;
+}
+
+static int _pairs(lua_State* L)
+{
+	lua_pushinteger(L, 0);
+	lua_pushcclosure(L, _iter_stable_all, 1);
+
+	lua_pushvalue(L, 1);
+
+	return 2;
 }
 
 int luaopen_stable_raw(lua_State* L)
@@ -626,7 +714,7 @@ int luaopen_stable_raw(lua_State* L)
 		{ "__index",	_get },
 		{ "__newindex",	_set },
 		{ "__gc",		_gc },
-		//{ "__pairs",	_pairs },
+		{ "__pairs",	_pairs },
 		{ "__ipairs",	_ipairs },
 		{ NULL,			NULL },
 	};
