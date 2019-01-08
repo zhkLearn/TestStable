@@ -26,7 +26,7 @@ print("\n5:")
 
 function dumpSTable(tbl)
 	for k,v in pairs(tbl) do  -- or use sraw.pairs
-		if type(v) == "userdata" then
+		if type(v) == "userdata" or type(v) == "table" then
 			print(k)
 			dumpSTable(v)
 		else
@@ -45,7 +45,20 @@ fromC = nil
 
 print("\n6:")
 
-local t2 = sraw.new()
-t2.values = {"Monday", "Tuesday", "Wednesday"}
-sraw.dump(t2, true)
+local t2 = {nil, "Monday", "Tuesday", "Wednesday"}
+t2[-1] = 12123
+t2[0] = 123
+t2[6] = 123
+dumpSTable(t2)
+print(#t2)
+
+local t3 = sraw.new()
+t3.values = t2
+sraw.dump(t3, false)
+
+
+
+
+
+
 

@@ -15,6 +15,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "StableRaw", "StableRaw\Stab
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LuaLib", "..\wxLua\build\modules\lua-5.2\LuaLib.vcxproj", "{909AFE74-BBB4-3B97-9693-019D57F3BF32}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SharedTable", "SharedTable\SharedTable.vcxproj", "{AC03984F-C157-4DD8-AAFD-641C432E3E30}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -71,6 +73,22 @@ Global
 		{909AFE74-BBB4-3B97-9693-019D57F3BF32}.RelWithDebInfo|x64.ActiveCfg = RelWithDebInfo|Win32
 		{909AFE74-BBB4-3B97-9693-019D57F3BF32}.RelWithDebInfo|x86.ActiveCfg = RelWithDebInfo|Win32
 		{909AFE74-BBB4-3B97-9693-019D57F3BF32}.RelWithDebInfo|x86.Build.0 = RelWithDebInfo|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Debug|x64.ActiveCfg = Debug|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Debug|x64.Build.0 = Debug|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Debug|x86.ActiveCfg = Debug|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Debug|x86.Build.0 = Debug|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.MinSizeRel|x64.ActiveCfg = Release|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.MinSizeRel|x64.Build.0 = Release|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.MinSizeRel|x86.ActiveCfg = Release|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.MinSizeRel|x86.Build.0 = Release|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Release|x64.ActiveCfg = Release|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Release|x64.Build.0 = Release|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Release|x86.ActiveCfg = Release|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.Release|x86.Build.0 = Release|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.RelWithDebInfo|x64.ActiveCfg = Release|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.RelWithDebInfo|x64.Build.0 = Release|x64
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.RelWithDebInfo|x86.ActiveCfg = Release|Win32
+		{AC03984F-C157-4DD8-AAFD-641C432E3E30}.RelWithDebInfo|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
