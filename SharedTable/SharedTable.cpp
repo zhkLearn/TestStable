@@ -246,7 +246,7 @@ private:
 	std::map<std::string, SValue>	_mapContainer;
 };
 
-static void _error(lua_State* L, const char *key, size_t sz, int type)
+static void _error(lua_State* L, const char* key, size_t sz, int type)
 {
 	if (key == NULL)
 	{
@@ -318,10 +318,10 @@ void stack_dump(lua_State* l)
 
 
 
-static const char* _get_key(lua_State* L, int key_idx, size_t *sz_idx, bool fromLua = true)
+static const char* _get_key(lua_State* L, int key_idx, size_t *sz_idx)
 {
 	int type = lua_type(L, key_idx);
-	const char *key = NULL;
+	const char* key = NULL;
 	size_t sz;
 
 	switch (type)
@@ -329,10 +329,6 @@ static const char* _get_key(lua_State* L, int key_idx, size_t *sz_idx, bool from
 	case LUA_TNUMBER:
 		sz = lua_tointeger(L, key_idx);
 		key = NULL;
-		if (fromLua)
-		{
-			sz--;
-		}
 		*sz_idx = sz;
 		break;
 
@@ -347,7 +343,7 @@ static const char* _get_key(lua_State* L, int key_idx, size_t *sz_idx, bool from
 	return key;
 }
 
-static void _set_value(lua_State* L, SharedTable* t, const char *key, size_t sz, int idx);
+static void _set_value(lua_State* L, SharedTable* t, const char* key, size_t sz, int idx);
 
 static bool traversal_table(lua_State* L, SharedTable* t, int idx)
 {
@@ -366,7 +362,7 @@ static bool traversal_table(lua_State* L, SharedTable* t, int idx)
 	while (lua_next(L, -2) != 0)
 	{
 		size_t sz = 0;
-		const char * key = _get_key(L, -2, &sz, false);
+		const char* key = _get_key(L, -2, &sz);
 		_set_value(L, t, key, sz, -1);
 
 		lua_pop(L, 1);
@@ -388,7 +384,7 @@ static bool traversal_table(lua_State* L, SharedTable* t, int idx)
 	return true;
 }
 
-static void _set_value(lua_State* L, SharedTable* t, const char *key, size_t sz, int idx)
+static void _set_value(lua_State* L, SharedTable* t, const char* key, size_t sz, int idx)
 {
 	int type = lua_type(L, idx);
 
@@ -396,6 +392,9 @@ static void _set_value(lua_State* L, SharedTable* t, const char *key, size_t sz,
 	const char* typeName = nullptr;
 	switch (type)
 	{
+	case LUA_TNIL:
+		typeName = "nil";
+		break;
 	case LUA_TNUMBER:
 		typeName = "number";
 		break;
@@ -425,6 +424,13 @@ static void _set_value(lua_State* L, SharedTable* t, const char *key, size_t sz,
 
 	switch (type)
 	{
+	case LUA_TNIL:
+		if (!key)
+			t->SetAt(sz, SharedTable::SValue());
+		else
+			t->Set(key, SharedTable::SValue());
+		break;
+
 	case LUA_TNUMBER:
 		if (!key)
 			t->SetAt(sz, SharedTable::SValue(lua_tonumber(L, idx)));

@@ -12,5 +12,6 @@ t.hello = {world = true, "one", "two", 3, False = false, testT = {true, 3, testt
 print("\n3:")
 
 t.subT = subT
-SharedTable.dump(t, true)
+t.hello[0] = nil
+SharedTable.dump(t, false)
 
