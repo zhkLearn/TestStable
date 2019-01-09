@@ -414,18 +414,18 @@ public:
 		printf("SharedTable count: %d", SharedTable::g_sharedTableCount);
 	}
 
-	void AddSharedTable(const std::string& name, SharedTable* p)
+	bool AddSharedTable(const std::string& name, SharedTable* p)
 	{
 		std::lock_guard<std::mutex> guard(_mutex);
 
 		auto it = _allSharedTables.find(name);
 		if (it != _allSharedTables.end())
-		{
-			return it->second->Release();
-		}
+			return false;
 
 		p->Grab();
 		_allSharedTables[name] = p;
+
+		return true;
 	}
 
 	// Notice: returned SharedTable's refCount will be increased.

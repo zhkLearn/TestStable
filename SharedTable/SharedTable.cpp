@@ -462,7 +462,10 @@ static int _share(lua_State* L)
 		luaL_error(L, "need a valid table name");
 	}
 
-	SharedTableManager::GetSingleton().AddSharedTable(name, t);
+	if (!SharedTableManager::GetSingleton().AddSharedTable(name, t))
+	{
+		luaL_error(L, "table already shared");
+	}
 
 	return 0;
 }
