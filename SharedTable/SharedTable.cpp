@@ -210,7 +210,7 @@ static void _set_value(lua_State* L, SharedTable* t, const char* key, size_t sz,
 		case LUA_TTABLE:
 			{
 				SharedTable* tChild = new SharedTable();
-				t->AddChildTable(tChild);
+				t->AddToChildTablesNotManagedByLua(tChild);
 				if (!key)
 					t->SetAt(sz, SharedTable::SValue(tChild));
 				else

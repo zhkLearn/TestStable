@@ -99,7 +99,7 @@ public:
 
 	~SharedTable()
 	{
-		for (auto item : _childSharedTables)
+		for (auto item : _childTablesNotManagedByLua)
 		{
 			item->DecreaseRef();
 		}
@@ -131,11 +131,11 @@ public:
 	}
 	*/
 
-	void AddChildTable(SharedTable* tChild)
+	void AddToChildTablesNotManagedByLua(SharedTable* tChild)
 	{
 		std::lock_guard<std::recursive_mutex> guard(_mutex);
 
-		_childSharedTables.push_back(tChild);
+		_childTablesNotManagedByLua.push_back(tChild);
 	}
 
 	//------------------------------------------------------------------
@@ -177,7 +177,7 @@ public:
 			if (it->second.GetType() == eSharedTable)
 			{
 				SharedTable* t = it->second._pSTable;
-				_childSharedTables.remove(t);
+				_childTablesNotManagedByLua.remove(t);
 				t->DecreaseRef();
 			}
 
@@ -241,7 +241,7 @@ public:
 			if (it->second.GetType() == eSharedTable)
 			{
 				SharedTable* t = it->second._pSTable;
-				_childSharedTables.remove(t);
+				_childTablesNotManagedByLua.remove(t);
 				t->DecreaseRef();
 			}
 
@@ -375,7 +375,7 @@ private:
 
 	ArrayType				_arrayContainer;
 	MapType					_mapContainer;
-	ChildSharedTableType	_childSharedTables;
+	ChildSharedTableType	_childTablesNotManagedByLua;
 
 	mutable std::recursive_mutex	_mutex;
 	int								_ref;
