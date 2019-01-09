@@ -2,301 +2,7 @@
 //
 
 #include "stdafx.h"
-#include <string>
-#include <map>
-#include <iostream>
-#include <stdlib.h>
-
-extern "C"
-{
-#include <lua.h>  
-#include <lualib.h>  
-#include <lauxlib.h>  
-}
-
-class SharedTable
-{
-public:
-
-	enum EValueType
-	{
-		eNil	= 0,
-		eString,
-		eDouble,
-		eBool,
-		eSharedTable,
-		eVoid,
-		eMax,
-	};
-
-	struct SValue
-	{
-		~SValue() {}
-		SValue() { _eType = eNil; }
-		SValue(std::string val) { _eType = eString; _str = val; }
-		SValue(double val) { _eType = eDouble; _d = val; }
-		SValue(bool val) { _eType = eBool; _b = val; }
-		SValue(SharedTable* val) { _eType = eSharedTable; _pSTable = val; }
-		SValue(void* val) { _eType = eVoid; _pVoid= val; }
-
-		bool Is(EValueType e) const { return _eType == e; }
-		EValueType GetType() const { return _eType; }
-
-		SValue(const SValue& val)
-		{
-			_eType = val._eType;
-			switch (_eType)
-			{
-			default:
-			case eNil:			break;
-			case eString:		_str = val._str; break;
-			case eDouble:		_d = val._d; break;
-			case eBool:			_b = val._b; break;
-			case eSharedTable:	_pSTable = val._pSTable; break;
-			case eVoid:			_pVoid = val._pVoid; break;
-			}
-		}
-
-		SValue& operator=(const SValue& val)
-		{
-			_eType = val._eType;
-			switch (_eType)
-			{
-			default:
-			case eNil:			break;
-			case eString:		_str = val._str; break;
-			case eDouble:		_d = val._d; break;
-			case eBool:			_b = val._b; break;
-			case eSharedTable:	_pSTable = val._pSTable; break;
-			case eVoid:			_pVoid = val._pVoid; break;
-			}
-
-			return *this;
-		}
-
-		EValueType		_eType;
-		std::string		_str;
-		union
-		{
-			double			_d;
-			bool			_b;
-			SharedTable*	_pSTable;
-			void*			_pVoid;
-		};
-	};
-
-public:
-
-	SharedTable()
-	{
-
-	}
-
-	virtual ~SharedTable()
-	{
-
-	}
-
-	// Note: this is not equal to lua's #
-	size_t Size() const
-	{
-		return _arrayContainer.size() + _mapContainer.size();
-	}
-
-	size_t ArraySize() const
-	{
-		return _arrayContainer.size();
-	}
-
-	int GetArrayStartIndex() const
-	{
-		if (_arrayContainer.size() != 0)
-		{
-			return _arrayContainer.begin()->first;
-		}
-
-		return 0;
-	}
-
-	//------------------------------------------------------------------
-	bool HasKey(int i) const
-	{
-		auto cit = _arrayContainer.find(i);
-		return (cit != _arrayContainer.end());
-	}
-
-	bool GetAt(int i, SValue& out) const
-	{
-		auto cit = _arrayContainer.find(i);
-		if (cit != _arrayContainer.end())
-		{
-			out = cit->second;
-			return true;
-		}
-
-		return false;
-	}
-
-	void SetAt(int i, const SValue& val)
-	{
-		_arrayContainer[i] = val;
-	}
-
-	void RemoveAt(int i)
-	{
-		auto it = _arrayContainer.find(i);
-		if (it != _arrayContainer.end())
-		{
-			_arrayContainer.erase(it);
-		}
-	}
-
-	bool GetArrayPair(int offset, int& key, SValue& value) const
-	{
-		if (offset < _arrayContainer.size())
-		{
-			ArrayType::const_iterator it = _arrayContainer.cbegin();
-			for (int i = 0; i < offset; ++i)
-				it++;
-
-			key = it->first;
-			value = it->second;
-		}
-
-		return false;
-	}
-
-
-	//------------------------------------------------------------------
-	bool HasKey(const std::string& key) const
-	{
-		auto cit = _mapContainer.find(key);
-		return (cit != _mapContainer.end());
-	}
-
-	bool Get(const std::string& key, SValue& out) const
-	{
-		auto cit = _mapContainer.find(key);
-		if (cit != _mapContainer.end())
-		{
-			out = cit->second;
-			return true;
-		}
-
-		return false;
-	}
-
-	void Set(const std::string& key, const SValue& val)
-	{
-		_mapContainer[key] = val;
-	}
-
-	void Remove(const std::string& key)
-	{
-		auto it = _mapContainer.find(key);
-		if (it != _mapContainer.end())
-		{
-			_mapContainer.erase(it);
-		}
-	}
-
-	bool GetMapPair(int offset, std::string& key, SValue& value) const
-	{
-		if (offset < _mapContainer.size())
-		{
-			MapType::const_iterator it = _mapContainer.cbegin();
-			for (int i = 0; i < offset; ++i)
-				it++;
-
-			key = it->first;
-			value = it->second;
-		}
-
-		return false;
-	}
-
-	//------------------------------------------------------------------
-	void DumpValue(const SValue& value, int depth, bool asLuaCode = true) const
-	{
-		switch (value._eType)
-		{
-		default:
-		case eNil:
-			printf("nil");
-			break;
-		case eString:
-			printf("\"%s\"", value._str.c_str());
-			break;
-		case eDouble:
-			printf("%g", value._d);
-			break;
-		case eBool:
-			printf("%s", value._b ? "true" : "false");
-			break;
-		case eSharedTable:
-			printf("{\n");
-			value._pSTable->Dump(depth + 1, asLuaCode);
-			for (int ident = 0; ident < depth; ++ident)
-				printf("  ");
-			printf("}");
-			break;
-		case eVoid:
-			printf("0x%x", value._pVoid);
-			break;
-		}
-	}
-
-	void Dump(int depth, bool asLuaCode = true) const
-	{
-		size_t t = 0, count = Size();
-
-		for (auto item : _arrayContainer)
-		{
-			for (int j = 0; j < depth; j++)
-				printf("  ");
-
-			if (!asLuaCode)
-				printf("[%d] = ", item.first);
-
-			const SValue& value = item.second;
-			DumpValue(value, depth, asLuaCode);
-
-			if (t != count - 1)
-				printf(",\n");
-			else
-				printf("\n");
-
-			t++;
-		}
-
-		for (auto item : _mapContainer)
-		{
-			for (int j = 0; j < depth; j++)
-				printf("  ");
-
-			printf("%s = ", item.first.c_str());
-
-			const SValue& value = item.second;
-			DumpValue(value, depth, asLuaCode);
-
-			if (t != count - 1)
-				printf(",\n");
-			else
-				printf("\n");
-
-			t++;
-		}
-
-	}
-
-private:
-
-	typedef std::map<int, SValue>			ArrayType;
-	typedef std::map<std::string, SValue>	MapType;
-
-	ArrayType	_arrayContainer;
-	MapType		_mapContainer;
-};
+#include "SharedTable.h"
 
 void stack_dump(lua_State* l)
 {
@@ -355,7 +61,6 @@ void stack_dump(lua_State* l)
 	}
 	printf("\n");  /* end the listing */
 }
-
 
 
 static const char* _get_key(lua_State* L, int key_idx, size_t *sz_idx)
@@ -562,6 +267,7 @@ static void _get_value(lua_State* L, const SharedTable::SValue& value)
 	case SharedTable::eSharedTable:
 		{
 			SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
+			value._pSTable->Grab();
 			*pp = value._pSTable;
 
 			luaL_getmetatable(L, "SharedTable");
@@ -607,8 +313,8 @@ static int _get(lua_State* L)
 
 static int _gc(lua_State* L)
 {
-	//SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
-	//delete t;
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	t->Release();
 
 	return 0;
 }
@@ -636,6 +342,7 @@ static int _dump(lua_State* L)
 
 static int _iter_stable_array(lua_State* L)
 {
+/*
 	int idx = luaL_checkinteger(L, 2);
 	lua_pushinteger(L, idx + 1);
 
@@ -647,10 +354,37 @@ static int _iter_stable_array(lua_State* L)
 	_get_value(L, value);
 
 	return 2;
+*/
+
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	size_t countArray = t->ArraySize();
+
+	int index = lua_tointeger(L, lua_upvalueindex(1));
+	if (index < countArray)
+	{
+		int key;
+		SharedTable::SValue value;
+		t->GetArrayPair(index, key, value);
+
+		lua_pushinteger(L, key);
+		_get_value(L, value);
+	}
+	else
+	{
+		lua_pushnil(L);
+		lua_pushnil(L);
+	}
+
+	lua_pushinteger(L, index + 1);
+	lua_replace(L, lua_upvalueindex(1));
+
+	return 2;
+
 }
 
 static int _ipairs(lua_State* L)
 {
+	/*
 	lua_pushcfunction(L, _iter_stable_array);
 	lua_pushvalue(L, 1);
 
@@ -658,6 +392,15 @@ static int _ipairs(lua_State* L)
 	lua_pushinteger(L, t->GetArrayStartIndex() - 1);
 
 	return 3;
+	*/
+
+	lua_pushinteger(L, 0);
+	lua_pushcclosure(L, _iter_stable_array, 1);
+
+	lua_pushvalue(L, 1);
+
+	return 2;
+
 }
 
 static int _iter_stable_all(lua_State* L)
@@ -707,7 +450,43 @@ static int _pairs(lua_State* L)
 	return 2;
 }
 
-int luaopen_stable_raw(lua_State* L)
+static int _share(lua_State* L)
+{
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+
+	const char* name = lua_tostring(L, 2);
+	if (!name)
+	{
+		luaL_error(L, "need a valid table name");
+	}
+
+	SharedTableManager::GetSingleton().AddSharedTable(name, t);
+
+	return 0;
+}
+
+static int _acquire(lua_State* L)
+{
+	const char* name = lua_tostring(L, 1);
+	if (!name)
+	{
+		luaL_error(L, "need a valid table name");
+	}
+
+	SharedTable* t = SharedTableManager::GetSingleton().GetSharedTable(name);
+	if (!t)
+		return 0;
+
+	SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
+	*pp = t;
+
+	luaL_getmetatable(L, "SharedTable");
+	lua_setmetatable(L, -2);
+
+	return 1;
+}
+
+int luaopen_SharedTable(lua_State* L)
 {
 	luaL_Reg lib_methods[] =
 	{
@@ -722,11 +501,8 @@ int luaopen_stable_raw(lua_State* L)
 	luaL_Reg l[] =
 	{
 		{ "new",		_new },
-		//{ "incref",		_incref },
-		//{ "decref",		_decref },
-		//{ "getref",		_getref },
-		//{ "share",		_share },
-		//{ "acquire",	_acquire },
+		{ "share",		_share },
+		{ "acquire",	_acquire },
 		{ "dump",		_dump },
 		{ NULL,			NULL },
 	};
@@ -740,15 +516,3 @@ int luaopen_stable_raw(lua_State* L)
 
 	return 1;
 }
-
-int main()
-{
-	lua_State* L = luaL_newstate();
-	luaL_openlibs(L);
-	luaL_requiref(L, "SharedTable", luaopen_stable_raw, 1);
-	luaL_dofile(L, "../lua/testSharedTable.lua");
-	lua_close(L);
-
-	return 0;
-}
-

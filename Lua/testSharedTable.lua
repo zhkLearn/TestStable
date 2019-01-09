@@ -1,3 +1,4 @@
+print("do testSharedTable.lua")
 print("\n1:")
 
 local t = SharedTable.new()
@@ -35,5 +36,27 @@ t[2] = 20
 print("\ndumpSTable(t):")
 dumpSTable(t)
 
+print("\n5:")
+function dumpArraySTable(tbl)
+	for k,v in ipairs(tbl) do  -- or use sraw.pairs
+		if type(v) == "userdata" or type(v) == "table" then
+			print(k)
+			dumpArraySTable(v)
+		else
+			print(k, v)
+		end
+	end
+end
+
+print("\n6:")
+print("\ndumpArraySTable(t):")
+dumpArraySTable(t)
+
 print("\ndump(t):")
 SharedTable.dump(t, false)
+
+SharedTable.share(t, "theSharedTable")
+
+print("\nThe end.")
+
+
