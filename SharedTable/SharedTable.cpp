@@ -4,6 +4,8 @@
 #include "stdafx.h"
 #include "SharedTable.h"
 
+int SharedTable::g_sharedTableCount = 0;
+
 void stack_dump(lua_State* l)
 {
 	int i;
@@ -258,7 +260,7 @@ static void _get_value(lua_State* L, const SharedTable::SValue& value)
 	case SharedTable::eString:
 		lua_pushlstring(L, value._str.c_str(), value._str.length());
 		break;
-	case SharedTable::eDouble:
+	case SharedTable::eNumber:
 		lua_pushnumber(L, value._d);
 		break;
 	case SharedTable::eBool:
@@ -473,7 +475,7 @@ static int _acquire(lua_State* L)
 		luaL_error(L, "need a valid table name");
 	}
 
-	SharedTable* t = SharedTableManager::GetSingleton().GetSharedTable(name);
+	SharedTable* t = SharedTableManager::GetSingleton().GrabSharedTable(name);
 	if (!t)
 		return 0;
 

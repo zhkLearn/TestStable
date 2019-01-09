@@ -23,7 +23,7 @@ public:
 	{
 		eNil = 0,
 		eString,
-		eDouble,
+		eNumber,
 		eBool,
 		eSharedTable,
 		eVoid,
@@ -35,7 +35,7 @@ public:
 		~SValue() {}
 		SValue() { _eType = eNil; }
 		SValue(std::string val) { _eType = eString; _str = val; }
-		SValue(double val) { _eType = eDouble; _d = val; }
+		SValue(double val) { _eType = eNumber; _d = val; }
 		SValue(bool val) { _eType = eBool; _b = val; }
 		SValue(SharedTable* val) { _eType = eSharedTable; _pSTable = val; }
 		SValue(void* val) { _eType = eVoid; _pVoid = val; }
@@ -51,7 +51,7 @@ public:
 			default:
 			case eNil:			break;
 			case eString:		_str = val._str; break;
-			case eDouble:		_d = val._d; break;
+			case eNumber:		_d = val._d; break;
 			case eBool:			_b = val._b; break;
 			case eSharedTable:	_pSTable = val._pSTable; break;
 			case eVoid:			_pVoid = val._pVoid; break;
@@ -66,7 +66,7 @@ public:
 			default:
 			case eNil:			break;
 			case eString:		_str = val._str; break;
-			case eDouble:		_d = val._d; break;
+			case eNumber:		_d = val._d; break;
 			case eBool:			_b = val._b; break;
 			case eSharedTable:	_pSTable = val._pSTable; break;
 			case eVoid:			_pVoid = val._pVoid; break;
@@ -88,9 +88,12 @@ public:
 
 public:
 
+	static int g_sharedTableCount;
+
 	SharedTable()
 	{
 		_ref = 1;
+		g_sharedTableCount++;
 	}
 
 	~SharedTable()
@@ -99,6 +102,7 @@ public:
 		{
 			item->Release();
 		}
+		g_sharedTableCount--;
 	}
 
 	// Note: this is not equal to lua's #
@@ -119,12 +123,10 @@ public:
 	/*
 	int GetArrayStartIndex() const
 	{
-	if (_arrayContainer.size() != 0)
-	{
-	return _arrayContainer.begin()->first;
-	}
+		if (_arrayContainer.size() != 0)
+			return _arrayContainer.begin()->first;
 
-	return 0;
+		return 0;
 	}
 	*/
 
@@ -133,8 +135,7 @@ public:
 	{
 		std::lock_guard<std::recursive_mutex> guard(_mutex);
 
-		auto cit = _arrayContainer.find(i);
-		return (cit != _arrayContainer.end());
+		return (_arrayContainer.find(i) != _arrayContainer.end());
 	}
 
 	bool GetAt(int i, SValue& out) const
@@ -168,6 +169,13 @@ public:
 		auto it = _arrayContainer.find(i);
 		if (it != _arrayContainer.end())
 		{
+			if (it->second.GetType() == eSharedTable)
+			{
+				SharedTable* t = it->second._pSTable;
+				_childSharedTables.remove(t);
+				t->Release();
+			}
+
 			_arrayContainer.erase(it);
 		}
 	}
@@ -178,12 +186,10 @@ public:
 
 		if (offset < _arrayContainer.size())
 		{
-			ArrayType::const_iterator it = _arrayContainer.cbegin();
-			for (int i = 0; i < offset; ++i)
-				it++;
+			auto itAtOffset = std::next(_arrayContainer.begin(), offset);
 
-			key = it->first;
-			value = it->second;
+			key = itAtOffset->first;
+			value = itAtOffset->second;
 			return true;
 		}
 
@@ -196,8 +202,7 @@ public:
 	{
 		std::lock_guard<std::recursive_mutex> guard(_mutex);
 
-		auto cit = _mapContainer.find(key);
-		return (cit != _mapContainer.end());
+		return (_mapContainer.find(key) != _mapContainer.end());
 	}
 
 	bool Get(const std::string& key, SValue& out) const
@@ -231,6 +236,13 @@ public:
 		auto it = _mapContainer.find(key);
 		if (it != _mapContainer.end())
 		{
+			if (it->second.GetType() == eSharedTable)
+			{
+				SharedTable* t = it->second._pSTable;
+				_childSharedTables.remove(t);
+				t->Release();
+			}
+
 			_mapContainer.erase(it);
 		}
 	}
@@ -241,12 +253,10 @@ public:
 
 		if (offset < _mapContainer.size())
 		{
-			MapType::const_iterator it = _mapContainer.cbegin();
-			for (int i = 0; i < offset; ++i)
-				it++;
+			auto itAtOffset = std::next(_mapContainer.begin(), offset);
 
-			key = it->first;
-			value = it->second;
+			key = itAtOffset->first;
+			value = itAtOffset->second;
 			return true;
 		}
 
@@ -265,7 +275,7 @@ public:
 		case eString:
 			printf("\"%s\"", value._str.c_str());
 			break;
-		case eDouble:
+		case eNumber:
 			printf("%g", value._d);
 			break;
 		case eBool:
@@ -385,17 +395,28 @@ public:
 	SharedTableManager() {}
 	~SharedTableManager()
 	{
-		std::lock_guard<std::recursive_mutex> guard(_mutex);
+		// Testing code
+		//SharedTable* t = GrabSharedTable("theSharedTable");
+		//if (t)
+		//{
+		//	t->Remove("subT");
+		//	t->Release();
+		//}
 
-		for (auto item : _allSharedTables)
 		{
-			item.second->Release();
+			std::lock_guard<std::mutex> guard(_mutex);
+			for (auto item : _allSharedTables)
+			{
+				item.second->Release();
+			}
 		}
+	
+		printf("SharedTable count: %d", SharedTable::g_sharedTableCount);
 	}
 
 	void AddSharedTable(const std::string& name, SharedTable* p)
 	{
-		std::lock_guard<std::recursive_mutex> guard(_mutex);
+		std::lock_guard<std::mutex> guard(_mutex);
 
 		auto it = _allSharedTables.find(name);
 		if (it != _allSharedTables.end())
@@ -407,9 +428,10 @@ public:
 		_allSharedTables[name] = p;
 	}
 
-	SharedTable* GetSharedTable(const std::string& name) const
+	// Notice: returned SharedTable's refCount will be increased.
+	SharedTable* GrabSharedTable(const std::string& name) const
 	{
-		std::lock_guard<std::recursive_mutex> guard(_mutex);
+		std::lock_guard<std::mutex> guard(_mutex);
 
 		auto it = _allSharedTables.find(name);
 		if (it != _allSharedTables.end())
@@ -423,6 +445,6 @@ public:
 
 private:
 	std::map<std::string, SharedTable*>		_allSharedTables;
-	mutable std::recursive_mutex			_mutex;
+	mutable std::mutex						_mutex;
 };
 
