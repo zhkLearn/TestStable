@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "SharedTable.h"
 
+#define M_MetaTableName		"SharedTable"
 int SharedTable::g_sharedTableCount = 0;
 
 void stack_dump(lua_State* l)
@@ -230,7 +231,7 @@ static void _set_value(lua_State* L, SharedTable* t, const char* key, size_t sz,
 
 		case LUA_TUSERDATA:
 			{
-				SharedTable* tChild = *(SharedTable**)luaL_checkudata(L, idx, "SharedTable");
+				SharedTable* tChild = *(SharedTable**)luaL_checkudata(L, idx, M_MetaTableName);
 				if (!key)
 					t->SetAt(sz, SharedTable::SValue(tChild));
 				else
@@ -254,7 +255,7 @@ static void _set_value(lua_State* L, SharedTable* t, const char* key, size_t sz,
 
 static int _set(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	size_t sz;
 	const char* key = _get_key(L, 2, &sz);
 	_set_value(L, t, key, sz, 3);
@@ -283,7 +284,7 @@ static void _get_value(lua_State* L, const SharedTable::SValue& value)
 				value._pSTable->IncreaseRef();
 				*pp = value._pSTable;
 
-				luaL_getmetatable(L, "SharedTable");
+				luaL_getmetatable(L, M_MetaTableName);
 				lua_setmetatable(L, -2);
 			}
 			break;
@@ -296,7 +297,7 @@ static void _get_value(lua_State* L, const SharedTable::SValue& value)
 
 static int _get(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	int type = lua_type(L, 2);
 
 	SharedTable::SValue value;
@@ -326,7 +327,7 @@ static int _get(lua_State* L)
 
 static int _gc(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	t->DecreaseRef();
 
 	return 0;
@@ -337,7 +338,7 @@ static int _new(lua_State* L)
 	SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
 	*pp = new SharedTable();
 
-	luaL_getmetatable(L, "SharedTable");
+	luaL_getmetatable(L, M_MetaTableName);
 	lua_setmetatable(L, -2);
 
 	return 1;
@@ -345,7 +346,7 @@ static int _new(lua_State* L)
 
 static int _dump(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	luaL_checkany(L, 2);
 	t->Dump(0, lua_toboolean(L, 2));
 
@@ -359,7 +360,7 @@ static int _iter_stable_array(lua_State* L)
 	int idx = luaL_checkinteger(L, 2);
 	lua_pushinteger(L, idx + 1);
 
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	SharedTable::SValue value;
 	if (!t->GetAt(idx + 1, value))
 		return 0;
@@ -369,7 +370,7 @@ static int _iter_stable_array(lua_State* L)
 	return 2;
 */
 
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	size_t countArray = t->ArraySize();
 
 	int index = lua_tointeger(L, lua_upvalueindex(1));
@@ -401,7 +402,7 @@ static int _ipairs(lua_State* L)
 	lua_pushcfunction(L, _iter_stable_array);
 	lua_pushvalue(L, 1);
 
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	lua_pushinteger(L, t->GetArrayStartIndex() - 1);
 
 	return 3;
@@ -418,7 +419,7 @@ static int _ipairs(lua_State* L)
 
 static int _iter_stable_all(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 	size_t count = t->Size();
 	size_t countArray = t->ArraySize();
 
@@ -465,7 +466,7 @@ static int _pairs(lua_State* L)
 
 static int _share(lua_State* L)
 {
-	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, "SharedTable");
+	SharedTable* t = *(SharedTable**)luaL_checkudata(L, 1, M_MetaTableName);
 
 	const char* name = lua_tostring(L, 2);
 	if (!name)
@@ -496,7 +497,7 @@ static int _acquire(lua_State* L)
 	SharedTable** pp = (SharedTable**)lua_newuserdata(L, sizeof(SharedTable*));
 	*pp = t;
 
-	luaL_getmetatable(L, "SharedTable");
+	luaL_getmetatable(L, M_MetaTableName);
 	lua_setmetatable(L, -2);
 
 	return 1;
@@ -525,7 +526,7 @@ int luaopen_SharedTable(lua_State* L)
 
 	luaL_checkversion(L);
 
-	luaL_newmetatable(L, "SharedTable");
+	luaL_newmetatable(L, M_MetaTableName);
 	luaL_setfuncs(L, lib_methods, 0);
 
 	luaL_newlib(L, l);
