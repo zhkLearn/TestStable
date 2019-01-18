@@ -1,6 +1,6 @@
 print("\n1:")
 
---local sraw = require "StableRaw"
+local sraw = require "StableRaw"
 print("\n1.1:")
 
 --sraw.init()  -- init lightuserdata metatable
@@ -23,6 +23,8 @@ t.subT = subT
 sraw.dump(t, true)
 
 print("\n5:")
+
+----[[
 
 function dumpSTable(tbl)
 	for k,v in pairs(tbl) do  -- or use sraw.pairs
@@ -56,6 +58,7 @@ local t3 = sraw.new()
 t3.values = t2
 sraw.dump(t3, false)
 
+--]]--
 
 
 

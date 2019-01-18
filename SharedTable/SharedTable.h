@@ -5,6 +5,7 @@
 #include <list>
 #include <iostream>
 #include <stdlib.h>
+#include <assert.h>
 #include <atomic>
 #include <mutex>
 
@@ -98,9 +99,9 @@ public:
 
 	~SharedTable()
 	{
-		for (auto item : _childSharedTables)
+		for (auto item : _childTablesNotManagedByLua)
 		{
-			item->Release();
+			item->DecreaseRef();
 		}
 		g_sharedTableCount--;
 	}
@@ -130,6 +131,13 @@ public:
 	}
 	*/
 
+	void AddToChildTablesNotManagedByLua(SharedTable* tChild)
+	{
+		std::lock_guard<std::recursive_mutex> guard(_mutex);
+
+		_childTablesNotManagedByLua.push_back(tChild);
+	}
+
 	//------------------------------------------------------------------
 	bool HasKey(int i) const
 	{
@@ -157,9 +165,6 @@ public:
 		std::lock_guard<std::recursive_mutex> guard(_mutex);
 
 		_arrayContainer[i] = val;
-
-		if (val.GetType() == eSharedTable)
-			_childSharedTables.push_back(val._pSTable);
 	}
 
 	void RemoveAt(int i)
@@ -172,8 +177,8 @@ public:
 			if (it->second.GetType() == eSharedTable)
 			{
 				SharedTable* t = it->second._pSTable;
-				_childSharedTables.remove(t);
-				t->Release();
+				_childTablesNotManagedByLua.remove(t);
+				t->DecreaseRef();
 			}
 
 			_arrayContainer.erase(it);
@@ -224,9 +229,6 @@ public:
 		std::lock_guard<std::recursive_mutex> guard(_mutex);
 
 		_mapContainer[key] = val;
-
-		if (val.GetType() == eSharedTable)
-			_childSharedTables.push_back(val._pSTable);
 	}
 
 	void Remove(const std::string& key)
@@ -239,8 +241,8 @@ public:
 			if (it->second.GetType() == eSharedTable)
 			{
 				SharedTable* t = it->second._pSTable;
-				_childSharedTables.remove(t);
-				t->Release();
+				_childTablesNotManagedByLua.remove(t);
+				t->DecreaseRef();
 			}
 
 			_mapContainer.erase(it);
@@ -346,14 +348,14 @@ public:
 		return _ref;
 	}
 
-	void Grab()
+	void IncreaseRef()
 	{
 		std::lock_guard<std::mutex> guard(_mutexRef);
 
 		_ref++;
 	}
 
-	void Release()
+	void DecreaseRef()
 	{
 		bool bDelete = false;
 		{
@@ -373,7 +375,7 @@ private:
 
 	ArrayType				_arrayContainer;
 	MapType					_mapContainer;
-	ChildSharedTableType	_childSharedTables;
+	ChildSharedTableType	_childTablesNotManagedByLua;
 
 	mutable std::recursive_mutex	_mutex;
 	int								_ref;
@@ -400,18 +402,18 @@ public:
 		//if (t)
 		//{
 		//	t->Remove("subT");
-		//	t->Release();
+		//	t->DecreaseRef();
 		//}
 
 		{
 			std::lock_guard<std::mutex> guard(_mutex);
 			for (auto item : _allSharedTables)
 			{
-				item.second->Release();
+				item.second->DecreaseRef();
 			}
 		}
 	
-		printf("SharedTable count: %d", SharedTable::g_sharedTableCount);
+		assert(SharedTable::g_sharedTableCount == 0);
 	}
 
 	bool AddSharedTable(const std::string& name, SharedTable* p)
@@ -422,7 +424,7 @@ public:
 		if (it != _allSharedTables.end())
 			return false;
 
-		p->Grab();
+		p->IncreaseRef();
 		_allSharedTables[name] = p;
 
 		return true;
@@ -436,7 +438,7 @@ public:
 		auto it = _allSharedTables.find(name);
 		if (it != _allSharedTables.end())
 		{
-			it->second->Grab();
+			it->second->IncreaseRef();
 			return it->second;
 		}
 

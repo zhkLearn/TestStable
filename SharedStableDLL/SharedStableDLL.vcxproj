@@ -19,9 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{967CE8BF-E25A-4049-B33E-334DA6789E3B}</ProjectGuid>
+    <ProjectGuid>{967CE8BF-E25A-4049-B67E-334DA6789E3B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>StableRaw</RootNamespace>
+    <RootNamespace>SharedStableDLL</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -153,13 +153,12 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\TestStable\stable.h" />
+    <ClInclude Include="..\SharedTable\SharedTable.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\TestStable\lua-stable.cpp" />
-    <ClCompile Include="..\TestStable\stable.cpp" />
+    <ClCompile Include="..\SharedTable\SharedTable.cpp" />
     <ClCompile Include="dllmain.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -174,7 +173,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="StableRaw.cpp" />
+    <ClCompile Include="SharedStableDLL.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
