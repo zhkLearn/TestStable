@@ -503,6 +503,16 @@ static int _acquire(lua_State* L)
 	return 1;
 }
 
+static int _testFunction(lua_State* L)
+{
+	lua_Integer l1 = luaL_checkinteger(L, 1);
+	lua_Integer l2 = luaL_checkinteger(L, 2);
+
+	lua_pushinteger(L, l1 + l2);
+
+	return 1;
+}
+
 int luaopen_SharedTable(lua_State* L)
 {
 	luaL_Reg lib_methods[] =
@@ -515,7 +525,7 @@ int luaopen_SharedTable(lua_State* L)
 		{ NULL,			NULL },
 	};
 
-	luaL_Reg l[] =
+	luaL_Reg lib[] =
 	{
 		{ "new",		_new },
 		{ "share",		_share },
@@ -529,7 +539,17 @@ int luaopen_SharedTable(lua_State* L)
 	luaL_newmetatable(L, M_MetaTableName);
 	luaL_setfuncs(L, lib_methods, 0);
 
-	luaL_newlib(L, l);
+	luaL_newlib(L, lib);
+
+	//------------------------------------------------------
+	luaL_Reg lib_subTable[] =
+	{
+		{ "testFunction",	_testFunction },
+		{ NULL,				NULL },
+	};
+	luaL_newlib(L, lib_subTable);
+	lua_setfield(L, -2, "subTable");
+
 
 	return 1;
 }

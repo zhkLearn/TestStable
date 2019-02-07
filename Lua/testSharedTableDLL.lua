@@ -9,8 +9,10 @@ SharedTable = require "SharedStableDLL"
 
 print("\n1:")
 
-local t = SharedTable.new()
+local subTableFromC = SharedTable.subTable
+print("subTableFromC.testFunction(1, 2): " .. subTableFromC.testFunction(1, 2))
 
+local t = SharedTable.new()
 
 print("\n2:")
 
