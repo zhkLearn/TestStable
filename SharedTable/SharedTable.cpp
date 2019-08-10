@@ -536,10 +536,10 @@ int luaopen_SharedTable(lua_State* L)
 
 	luaL_checkversion(L);
 
-	luaL_newmetatable(L, M_MetaTableName);
+	luaL_newmetatable(L, M_MetaTableName);	//-1
 	luaL_setfuncs(L, lib_methods, 0);
 
-	luaL_newlib(L, lib);
+	luaL_newlib(L, lib);					//-2
 
 	//------------------------------------------------------
 	luaL_Reg lib_subTable[] =
@@ -547,7 +547,7 @@ int luaopen_SharedTable(lua_State* L)
 		{ "testFunction",	_testFunction },
 		{ NULL,				NULL },
 	};
-	luaL_newlib(L, lib_subTable);
+	luaL_newlib(L, lib_subTable);			//-3
 	lua_setfield(L, -2, "subTable");
 
 
